@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline GIS Asset Capture</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        #status {
+            position: absolute; top: 10px; right: 10px; z-index: 1000;
+            background: white; padding: 8px 15px; border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: bold;
+        }
+        .online { border-left: 5px solid green; }
+        .offline { border-left: 5px solid red; }
+    </style>
+</head>
+<body>
+    <div id="status" class="online">Loading...</div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+
+    <script src="app.js"></script>
+</body>
+</html>
