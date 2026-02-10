@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "id": 1, "name": "Substation Alpha", "status": "Operational" },
+      "geometry": { "type": "Point", "coordinates": [-1.5491, 53.8008] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "id": 2, "name": "Cable Junction B", "status": "Needs Repair" },
+      "geometry": { "type": "Point", "coordinates": [-1.5550, 53.8050] }
+    }
+  ]
+}
