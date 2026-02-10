@@ -1,7 +1,7 @@
-// 1. Setup IndexedDB (The Local Database)
+// 1. Setup IndexedDB
 const db = new Dexie("AssetDB");
 db.version(1).stores({
-    assets: 'id, properties, geometry' // We store the GeoJSON feature
+    assets: 'id, properties, geometry' //GeoJSON feature
 });
 
 // 2. Setup Map
