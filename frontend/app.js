@@ -42,6 +42,7 @@ async function loadAssets() {
 // 4. Render Markers
 function renderMap(features) {
     // Clear existing layers (simplification)
+    map.invalidateSize(); // <--- ADD THIS LINE. It forces Leaflet to recalculate the map width.
     map.eachLayer(layer => {
         if (layer instanceof L.Marker) map.removeLayer(layer);
     });

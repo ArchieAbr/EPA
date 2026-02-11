@@ -4,26 +4,167 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Offline GIS Asset Capture</title>
+    
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
     <style>
-        body { margin: 0; font-family: sans-serif; }
-        #map { height: 100vh; width: 100%; }
-        #status {
-            position: absolute; top: 10px; right: 10px; z-index: 1000;
-            background: white; padding: 8px 15px; border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: bold;
+        /* RESET & LAYOUT */
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', sans-serif; }
+        
+        /* Main Flex Container: Holds Sidebar (Left) and Map (Right) */
+        .app-container {
+            display: flex;
+            height: 100vh; /* Full viewport height */
+            width: 100vw;
         }
-        .online { border-left: 5px solid green; }
-        .offline { border-left: 5px solid red; }
+
+        /* --- LEFT SIDEBAR (The Tools) --- */
+        .sidebar {
+            width: 300px; /* Fixed width */
+            background-color: #2c3e50; /* Dark GIS Blue-Grey */
+            color: white;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #ddd;
+            flex-shrink: 0; /* Prevent shrinking */
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2);
+            z-index: 1001; /* Sit above map tiles */
+        }
+
+        /* Sidebar Header (The circles in your wireframe) */
+        .sidebar-header {
+            padding: 15px;
+            background-color: #34495e;
+            display: flex;
+            gap: 10px;
+            border-bottom: 1px solid #1a252f;
+        }
+        .dot { height: 12px; width: 12px; background-color: #bbb; border-radius: 50%; }
+
+        /* Menu Items */
+        .menu-group { padding: 20px; }
+        .menu-title { 
+            font-size: 0.85rem; text-transform: uppercase; 
+            letter-spacing: 1px; color: #95a5a6; margin-bottom: 10px; 
+        }
+
+        /* Buttons */
+        .tool-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #34495e;
+            border: none;
+            color: white;
+            text-align: left;
+            cursor: pointer;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            transition: background 0.2s;
+            font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tool-btn:hover { background-color: #2980b9; }
+
+        /* Sub-menu (Hidden by default) */
+        .submenu {
+            display: none; /* Hidden initially */
+            background-color: #1a252f;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .submenu-btn {
+            width: 100%;
+            padding: 10px 10px 10px 25px; /* Indented */
+            background: none;
+            border: none;
+            color: #ecf0f1;
+            text-align: left;
+            cursor: pointer;
+            font-size: 0.9rem;
+            border-left: 3px solid transparent;
+        }
+        .submenu-btn:hover { background-color: #2c3e50; border-left: 3px solid #3498db; }
+
+        /* --- RIGHT CONTENT (The Map) --- */
+        .map-wrapper {
+            flex-grow: 1; /* Take remaining space */
+            position: relative;
+        }
+        #map { height: 100%; width: 100%; }
+
+        /* Status Badge (Moved to top-right of map area) */
+        #status {
+            position: absolute; top: 20px; right: 20px; z-index: 1000;
+            background: white; padding: 8px 15px; border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .online { color: #27ae60; border: 2px solid #27ae60; }
+        .offline { color: #c0392b; border: 2px solid #c0392b; }
     </style>
 </head>
 <body>
-    <div id="status" class="online">Loading...</div>
-    <div id="map"></div>
+
+    <div class="app-container">
+        
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+
+            <div class="menu-group">
+                <div class="menu-title">Assets</div>
+                
+                <button class="tool-btn" onclick="toggleSubmenu('point-tools')">
+                    Add Point Asset <span>▼</span>
+                </button>
+                <div id="point-tools" class="submenu">
+                    <button class="submenu-btn" onclick="activateTool('Pole')">📍 Add Pole</button>
+                    <button class="submenu-btn" onclick="activateTool('Transformer')">⚡ Add Transformer</button>
+                </div>
+
+                <button class="tool-btn">Add Line Asset</button>
+            </div>
+
+            <div class="menu-group">
+                <div class="menu-title">Job Pack Actions</div>
+                <button class="tool-btn">View Job Specs</button>
+                <button class="tool-btn">Sync Changes</button>
+            </div>
+        </aside>
+
+        <main class="map-wrapper">
+            <div id="status" class="online">Checking...</div>
+            <div id="map"></div>
+        </main>
+
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
-
+    
     <script src="app.js"></script>
+
+    <script>
+        // Simple UI Logic for the Menu
+        function toggleSubmenu(id) {
+            const el = document.getElementById(id);
+            if (el.style.display === 'block') {
+                el.style.display = 'none';
+            } else {
+                el.style.display = 'block';
+            }
+        }
+
+        function activateTool(toolName) {
+            alert(`Selected Tool: ${toolName}\n(Click on the map to place one - Logic coming next!)`);
+            // We will hook this up to the map in the next step
+        }
+    </script>
 </body>
 </html>
