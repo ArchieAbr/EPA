@@ -21,7 +21,7 @@
         /* --- LEFT SIDEBAR (The Tools) --- */
         .sidebar {
             width: 300px; /* Fixed width */
-            background-color: #2c3e50; /* Dark GIS Blue-Grey */
+            background-color: #2c3e50;
             color: white;
             display: flex;
             flex-direction: column;
@@ -31,7 +31,7 @@
             z-index: 1001; /* Sit above map tiles */
         }
 
-        /* Sidebar Header (The circles in your wireframe) */
+        /* Sidebar Header */
         .sidebar-header {
             padding: 15px;
             background-color: #34495e;
@@ -95,15 +95,17 @@
         }
         #map { height: 100%; width: 100%; }
 
-        /* Status Badge (Moved to top-right of map area) */
+        /* Status Badge */
         #status {
             position: absolute; top: 20px; right: 20px; z-index: 1000;
             background: white; padding: 8px 15px; border-radius: 20px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.2); font-weight: bold;
             font-size: 0.9rem;
+            transition: all 0.3s ease;
         }
         .online { color: #27ae60; border: 2px solid #27ae60; }
         .offline { color: #c0392b; border: 2px solid #c0392b; }
+        .checking { color: #f39c12; border: 2px solid #f39c12; }
     </style>
 </head>
 <body>
@@ -124,8 +126,8 @@
                     Add Point Asset <span>▼</span>
                 </button>
                 <div id="point-tools" class="submenu">
-                    <button class="submenu-btn" onclick="activateTool('Pole')">📍 Add Pole</button>
-                    <button class="submenu-btn" onclick="activateTool('Transformer')">⚡ Add Transformer</button>
+                    <button class="submenu-btn" onclick="activateTool('Pole')"> Add Pole</button>
+                    <button class="submenu-btn" onclick="activateTool('Transformer')"> Add Transformer</button>
                 </div>
 
                 <button class="tool-btn">Add Line Asset</button>
@@ -139,7 +141,7 @@
         </aside>
 
         <main class="map-wrapper">
-            <div id="status" class="online">Checking...</div>
+            <div id="status" class="checking">Checking...</div>
             <div id="map"></div>
         </main>
 
@@ -163,7 +165,7 @@
 
         function activateTool(toolName) {
             alert(`Selected Tool: ${toolName}\n(Not Implemented Yet)`);
-            // We will hook this up to the map in the next step
+            //TODO: Implement tool activation logic
         }
     </script>
 </body>

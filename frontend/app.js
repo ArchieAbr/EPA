@@ -13,46 +13,58 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap'
 }).addTo(map);
 
+// 3. HEARTBEAT & CONNECTION LOGIC (The Fix)
+// Variable to track state
 const statusBadge = document.getElementById('status');
 
-
-// 3. HEARTBEAT & CONNECTION LOGIC (The Fix)
 // Variable to track state
 let isServerReachable = false;
 
 async function checkServerStatus() {
+    // Set UI to "Checking" only if we were previously offline
+    if (!isServerReachable) {
+        updateStatusUI('checking'); 
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // Force timeout after 2 seconds
+
     try {
-        // Try to fetch a resource
-        const response = await fetch(`${API_BASE}/api/assets`, { method: 'HEAD' });
+        const response = await fetch(`${API_BASE}/api/assets`, { 
+            method: 'HEAD',
+            signal: controller.signal // Attach the stopwatch
+        });
         
+        clearTimeout(timeoutId); // Stop the timer if successful
+
         if (response.ok) {
             if (!isServerReachable) {
                 console.log("System: Connection Restored");
                 isServerReachable = true;
-                updateStatusUI(true);
-                syncOfflineChanges(); // Auto-sync when back online
+                updateStatusUI('online');
+                syncOfflineChanges(); 
             }
-        } else {
-            throw new Error("Server Error");
         }
     } catch (err) {
-        if (isServerReachable) {
-            console.log("System: Connection Lost");
+        // If it timed out or failed
+        if (isServerReachable || statusBadge.classList.contains('checking')) {
+            console.log("System: Connection Lost (Timeout or Error)");
             isServerReachable = false;
-            updateStatusUI(false);
+            updateStatusUI('offline');
         }
     }
 }
 
-function updateStatusUI(online) {
-    if (online) {
+function updateStatusUI(state) {
+    if (state === 'online') {
         statusBadge.innerHTML = '● Online';
-        statusBadge.className = 'online'; // Green border
-        statusBadge.style.color = '#27ae60';
-    } else {
+        statusBadge.className = 'online';
+    } else if (state === 'offline') {
         statusBadge.innerHTML = '● Offline Mode';
-        statusBadge.className = 'offline'; // Red border
-        statusBadge.style.color = '#c0392b';
+        statusBadge.className = 'offline';
+    } else if (state === 'checking') {
+        statusBadge.innerHTML = '● Checking...';
+        statusBadge.className = 'checking';
     }
 }
 
