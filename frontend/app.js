@@ -1,33 +1,72 @@
 // CONFIGURATION
 const API_BASE = "http://127.0.0.1:5000";
 
-// MOCK JOB PACK DATA (Simulating Maximo/Electric Office Data)
+// MOCK JOB PACK DATA
 const currentJobPack = {
-  id: "WR-2025-8892",
-  name: "Substation Alpha Upgrade",
-  status: "In Progress",
-  description: "Replace existing LV board and install new 11kV Pole.",
-  center: [53.8008, -1.5491], // Leeds
+    id: "WR-2025-9901",
+    name: "Woodhouse Moor Circuit Upgrade",
+    status: "Design Approval",
+    description: "Install new 4-pole ring circuit for park event power supply.",
+    center: [53.8100, -1.5600],
+    
+    // The "Design" (Black Lines/Dots)
+    proposed_assets: [
+        // Poles
+        {
+            type: "Feature",
+            properties: { type: "Pole", status: "Proposed", id: "P-01" },
+            geometry: { type: "Point", coordinates: [-1.5610, 53.8105] } // Top-Left
+        },
+        {
+            type: "Feature",
+            properties: { type: "Pole", status: "Proposed", id: "P-02" },
+            geometry: { type: "Point", coordinates: [-1.5590, 53.8105] } // Top-Right
+        },
+        {
+            type: "Feature",
+            properties: { type: "Pole", status: "Proposed", id: "P-03" },
+            geometry: { type: "Point", coordinates: [-1.5590, 53.8095] } // Bottom-Right
+        },
+        {
+            type: "Feature",
+            properties: { type: "Pole", status: "Proposed", id: "P-04" },
+            geometry: { type: "Point", coordinates: [-1.5610, 53.8095] } // Bottom-Left
+        },
 
-  // The "Design" - What the office THINKS you should build
-  proposed_assets: [
-    {
-      type: "Feature",
-      properties: { type: "Pole", status: "Proposed" },
-      geometry: { type: "Point", coordinates: [-1.5485, 53.801] },
-    },
-    {
-      type: "Feature", // A proposed cable route
-      properties: { type: "Cable", status: "Proposed" },
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [-1.5491, 53.8008],
-          [-1.5485, 53.801],
-        ],
-      },
-    },
-  ],
+        // Cables
+        {
+            type: "Feature",
+            properties: { type: "Cable", status: "Proposed", voltage: "11kV" },
+            geometry: { 
+                type: "LineString", 
+                coordinates: [[-1.5610, 53.8105], [-1.5590, 53.8105]] // Top
+            }
+        },
+        {
+            type: "Feature",
+            properties: { type: "Cable", status: "Proposed", voltage: "11kV" },
+            geometry: { 
+                type: "LineString", 
+                coordinates: [[-1.5590, 53.8105], [-1.5590, 53.8095]] // Right
+            }
+        },
+        {
+            type: "Feature",
+            properties: { type: "Cable", status: "Proposed", voltage: "11kV" },
+            geometry: { 
+                type: "LineString", 
+                coordinates: [[-1.5590, 53.8095], [-1.5610, 53.8095]] // Bottom
+            }
+        },
+        {
+            type: "Feature",
+            properties: { type: "Cable", status: "Proposed", voltage: "11kV" },
+            geometry: { 
+                type: "LineString", 
+                coordinates: [[-1.5610, 53.8095], [-1.5610, 53.8105]] // Left
+            }
+        }
+    ]
 };
 
 // 1. Setup IndexedDB
@@ -37,7 +76,7 @@ db.version(1).stores({
 });
 
 // 2. Setup Map
-const map = L.map("map").setView([53.8008, -1.5491], 14);
+const map = L.map('map').setView([53.8100, -1.5600], 20);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap",
 }).addTo(map);
