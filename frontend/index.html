@@ -165,27 +165,39 @@
         >
           <div class="menu-title" style="color: #3498db">ACTIVE JOB PACK</div>
           <h2 style="margin: 0; font-size: 1.1rem; color: white">
-            WR-2025-8892
+            WR-2025-9901
           </h2>
           <p style="font-size: 0.85rem; color: #bdc3c7; margin: 5px 0 15px 0">
-            Substation Alpha Upgrade<br />
+            Woodhouse Moor Circuit<br />
             <span style="color: #f1c40f">● In Progress</span>
           </p>
-
-          <div style="display: flex; gap: 5px">
-            <button class="tool-btn" style="font-size: 0.8rem; padding: 8px">
-              Risk Assessment
-            </button>
-            <button class="tool-btn" style="font-size: 0.8rem; padding: 8px">
-              Design Map
-            </button>
-          </div>
         </div>
 
         <div class="menu-group">
-          <div class="menu-title">Job Pack Actions</div>
-          <button class="tool-btn">View Job Specs</button>
-          <button class="tool-btn">Sync Changes</button>
+          <div class="menu-title">Construction Tools</div>
+
+          <button class="tool-btn" onclick="toggleSubmenu('point-tools')">
+            Add Point Asset <span>▼</span>
+          </button>
+          <div id="point-tools" class="submenu">
+            <button class="submenu-btn" onclick="activateTool('Pole')">
+              Add Pole
+            </button>
+            <button class="submenu-btn" onclick="activateTool('Transformer')">
+              Add Transformer
+            </button>
+          </div>
+
+          <button class="tool-btn" onclick="activateTool('Cable')">
+            Add Cable Route
+          </button>
+        </div>
+
+        <div class="menu-group">
+          <div class="menu-title">Actions</div>
+          <button class="tool-btn" onclick="syncOfflineChanges()">
+            Force Sync
+          </button>
         </div>
       </aside>
 
@@ -201,7 +213,7 @@
     <script src="app.js"></script>
 
     <script>
-      // Simple UI Logic for the Menu
+      // Only keep the UI toggle logic here
       function toggleSubmenu(id) {
         const el = document.getElementById(id);
         if (el.style.display === "block") {
@@ -210,11 +222,7 @@
           el.style.display = "block";
         }
       }
-
-      function activateTool(toolName) {
-        alert(`Selected Tool: ${toolName}\n(Not Implemented Yet)`);
-        //TODO: Implement tool activation logic
-      }
+      // NOTE TO SELF: activateTool() has been removed from here.
     </script>
   </body>
 </html>
