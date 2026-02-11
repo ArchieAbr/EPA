@@ -211,20 +211,30 @@ async function saveAndRender(asset) {
 }
 
 // 4. RENDERING LOGIC
-
 // A. Render the "Black" Design Layer (Static)
 function renderJobPackLayers() {
   const proposedLayer = L.layerGroup().addTo(map);
+  
   L.geoJSON(currentJobPack.proposed_assets, {
-    style: { color: "#2c3e50", dashArray: "5, 10", weight: 3, opacity: 0.8 }, // Black Dashed Line
-    pointToLayer: (f, latlng) =>
-      L.circleMarker(latlng, {
+    // Style for Lines
+    style: { 
+        color: "#2c3e50", 
+        dashArray: "5, 10", 
+        weight: 3, 
+        opacity: 0.8 
+    }, 
+    // Style for Points
+    pointToLayer: (f, latlng) => L.circleMarker(latlng, {
         radius: 5,
-        fillColor: "#2c3e50", // Black Fill
+        fillColor: "#2c3e50", 
         color: "#fff",
         weight: 1,
-        fillOpacity: 1,
-      }),
+        fillOpacity: 1
+    }),
+    // FIX: Restore the Popups (This was missing!)
+    onEachFeature: function (feature, layer) {
+        layer.bindPopup(`<b>DESIGN: ${feature.properties.type}</b><br>Status: ${feature.properties.status}`);
+    }
   }).addTo(proposedLayer);
 }
 
