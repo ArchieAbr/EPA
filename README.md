@@ -78,11 +78,6 @@ EPA/
 cd backend
 pip install flask flask-cors
 python app.py                # Starts on http://127.0.0.1:5000
-
-# Frontend
-cd frontend
-# Serve with any static file server, e.g.:
-python -m http.server 8080   # Open http://localhost:8080
 ```
 
 ## API Endpoints
@@ -95,4 +90,4 @@ python -m http.server 8080   # Open http://localhost:8080
 ## Development Phases
 
 - **Phase 1** — Basic UI layout and simple functionality (offline checking, maps, menus, etc)
-- **Phase 2** — Mock job pack
+- **Phase 2** — Mock job pack and readlining
