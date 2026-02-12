@@ -91,3 +91,5 @@ python app.py                # Starts on http://127.0.0.1:5000
 
 - **Phase 1** — Basic UI layout and simple functionality (offline checking, maps, menus, etc)
 - **Phase 2** — Mock job pack and Redlining
+- **Comments** — Add ability to remove assets from the map
+- next stage: Implement backend DB syncing (Phase_3a)
