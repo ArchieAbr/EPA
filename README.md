@@ -90,4 +90,4 @@ python app.py                # Starts on http://127.0.0.1:5000
 ## Development Phases
 
 - **Phase 1** — Basic UI layout and simple functionality (offline checking, maps, menus, etc)
-- **Phase 2** — Mock job pack and readlining
+- **Phase 2** — Mock job pack and Redlining
