@@ -93,10 +93,10 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap",
 }).addTo(map);
 
-// 3. TOOL & DRAWING LOGIC
+// 3. TOOL & DRAWING LOGIC - Redlining
 let currentTool = null;
 let cableStartNode = null; // Tracks the first pole clicked for a cable
-let tempLine = null; // The visual "rubber band" line
+let tempLine = null; // The visual "rubber band" line - not working
 
 // Called by the HTML buttons
 window.activateTool = function (toolName) {
@@ -125,7 +125,7 @@ map.on("click", async function (e) {
 
 // FEATURE CLICK LISTENER (For Snapping / Cables)
 function onFeatureClick(e, featureProperties) {
-  // Only care if we are in "Cable" mode
+  // Only care if we are in "Cable" mode - change this
   if (currentTool !== "Cable") return;
 
   const latlng = e.latlng;
@@ -300,6 +300,9 @@ async function loadAssets() {
     });
 }
 
+
+//Non-fucntional
+
 // Load from DB on startup
 async function loadAssets() {
   // Clear old Red markers (but keep Black design layer)
@@ -393,7 +396,7 @@ function updateStatusUI(state) {
 
 // INITIALIZATION
 renderJobPackLayers(); // Draw Black Lines
-loadAssets(); // Draw Red Dots
+loadAssets(); // Draw Red Dots - change?
 setInterval(checkServerStatus, 5000);
 checkServerStatus();
 
