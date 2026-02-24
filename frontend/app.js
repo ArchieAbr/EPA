@@ -210,96 +210,127 @@ async function saveAndRender(asset) {
   if (isServerReachable) syncOfflineChanges();
 }
 
+// HELPER: Delete Asset from DB and Re-render
+async function deleteAsset(assetId) {
+  await db.assets.delete(assetId);
+  loadAssets(); // Re-render to remove from map
+  map.closePopup();
+  console.log(`Asset ${assetId} deleted.`);
+}
+
+// Expose to global scope for popup button onclick
+window.deleteAsset = deleteAsset;
+
 // 4. RENDERING LOGIC
 // A. Render the "Black" Design Layer (Static)
 function renderJobPackLayers() {
   const proposedLayer = L.layerGroup().addTo(map);
-  
+
   L.geoJSON(currentJobPack.proposed_assets, {
     // Style for Lines
-    style: { 
-        color: "#2c3e50", 
-        dashArray: "5, 10", 
-        weight: 3, 
-        opacity: 0.8 
-    }, 
+    style: {
+      color: "#2c3e50",
+      dashArray: "5, 10",
+      weight: 3,
+      opacity: 0.8,
+    },
     // Style for Points
-    pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+    pointToLayer: (f, latlng) =>
+      L.circleMarker(latlng, {
         radius: 5,
-        fillColor: "#2c3e50", 
+        fillColor: "#2c3e50",
         color: "#fff",
         weight: 1,
-        fillOpacity: 1
-    }),
+        fillOpacity: 1,
+      }),
     // FIX: Restore the Popups (This was missing!)
     onEachFeature: function (feature, layer) {
-        layer.bindPopup(`<b>DESIGN: ${feature.properties.type}</b><br>Status: ${feature.properties.status}`);
-    }
+      layer.bindPopup(
+        `<b>DESIGN: ${feature.properties.type}</b><br>Status: ${feature.properties.status}`,
+      );
+    },
   }).addTo(proposedLayer);
 }
 
 // B. Render the "Red" As-Built Layer (Dynamic from DB)
 function renderSingleRedMarker(f) {
-    const marker = L.circleMarker([f.geometry.coordinates[1], f.geometry.coordinates[0]], {
-        radius: 7,              
-        fillColor: "#e74c3c",   
-        color: "#c0392b",       
-        weight: 2,
-        fillOpacity: 1
-    });
+  const marker = L.circleMarker(
+    [f.geometry.coordinates[1], f.geometry.coordinates[0]],
+    {
+      radius: 7,
+      fillColor: "#e74c3c",
+      color: "#c0392b",
+      weight: 2,
+      fillOpacity: 1,
+    },
+  );
 
-    // CLICK HANDLER FOR SNAPPING
-    marker.on('click', (e) => onFeatureClick(e, f.properties));
+  // CLICK HANDLER FOR SNAPPING
+  marker.on("click", (e) => onFeatureClick(e, f.properties));
 
-    if (f.pending_sync === 1) {
-        marker.setStyle({ fillOpacity: 0.5, dashArray: "2, 2" });
-        marker.bindPopup(`<b>${f.properties.name}</b><br>(Unsynced)`);
-    } else {
-        marker.bindPopup(`<b>${f.properties.name}</b><br>Synced`);
-    }
-    
-    marker.addTo(map);
+  // Popup with delete button for As-Built assets
+  const syncStatus = f.pending_sync === 1 ? "(Unsynced)" : "Synced";
+  const popupContent = `
+        <b>${f.properties.name}</b><br>
+        ${syncStatus}<br>
+        <button onclick="deleteAsset(${f.id})" style="margin-top:8px; padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+    `;
+
+  if (f.pending_sync === 1) {
+    marker.setStyle({ fillOpacity: 0.5, dashArray: "2, 2" });
+  }
+  marker.bindPopup(popupContent);
+
+  marker.addTo(map);
 }
 
 // NEW: Render Red Lines (Cables)
 function renderSingleRedLine(f) {
-    // Swap coordinates because Leaflet is [Lat, Lng] but GeoJSON is [Lng, Lat]
-    const latlngs = f.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+  // Swap coordinates because Leaflet is [Lat, Lng] but GeoJSON is [Lng, Lat]
+  const latlngs = f.geometry.coordinates.map((coord) => [coord[1], coord[0]]);
 
-    const polyline = L.polyline(latlngs, {
-        color: "#e74c3c", // Red
-        weight: 4,
-        opacity: 0.8
-    });
+  const polyline = L.polyline(latlngs, {
+    color: "#e74c3c", // Red
+    weight: 4,
+    opacity: 0.8,
+  });
 
-    if (f.pending_sync === 1) {
-        polyline.setStyle({ dashArray: "10, 10", opacity: 0.5 });
-        polyline.bindPopup(`<b>${f.properties.name}</b><br>(Unsynced)`);
-    } else {
-        polyline.bindPopup(`<b>${f.properties.name}</b><br>Synced`);
-    }
+  // Popup with delete button for As-Built cables
+  const syncStatus = f.pending_sync === 1 ? "(Unsynced)" : "Synced";
+  const popupContent = `
+        <b>${f.properties.name}</b><br>
+        ${syncStatus}<br>
+        <button onclick="deleteAsset(${f.id})" style="margin-top:8px; padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+    `;
 
-    polyline.addTo(map);
+  if (f.pending_sync === 1) {
+    polyline.setStyle({ dashArray: "10, 10", opacity: 0.5 });
+  }
+  polyline.bindPopup(popupContent);
+
+  polyline.addTo(map);
 }
 
 // Update loadAssets to handle lines too
 async function loadAssets() {
-    // Clear old Red layers (Simple clear all non-tile layers)
-    map.eachLayer((layer) => {
-        // Clear Red Circles AND Red Lines
-        if ((layer instanceof L.CircleMarker && layer.options.fillColor === "#e74c3c") ||
-            (layer instanceof L.Polyline && layer.options.color === "#e74c3c")) {
-            map.removeLayer(layer);
-        }
-    });
+  // Clear old Red layers (Simple clear all non-tile layers)
+  map.eachLayer((layer) => {
+    // Clear Red Circles AND Red Lines
+    if (
+      (layer instanceof L.CircleMarker &&
+        layer.options.fillColor === "#e74c3c") ||
+      (layer instanceof L.Polyline && layer.options.color === "#e74c3c")
+    ) {
+      map.removeLayer(layer);
+    }
+  });
 
-    const localFeatures = await db.assets.toArray();
-    localFeatures.forEach(f => {
-        if (f.geometry.type === 'Point') renderSingleRedMarker(f);
-        if (f.geometry.type === 'LineString') renderSingleRedLine(f);
-    });
+  const localFeatures = await db.assets.toArray();
+  localFeatures.forEach((f) => {
+    if (f.geometry.type === "Point") renderSingleRedMarker(f);
+    if (f.geometry.type === "LineString") renderSingleRedLine(f);
+  });
 }
-
 
 //Non-fucntional
 
