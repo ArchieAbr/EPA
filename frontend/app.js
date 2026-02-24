@@ -153,22 +153,18 @@ function onFeatureClick(e, featureProperties) {
 }
 
 // HELPER: Create Point (Pole/Transformer)
+let pendingAssetGeometry = null; // Stores geometry while form is open
+let pendingAssetType = null; // Stores asset type (Pole/Transformer)
+
 async function createPointAsset(latlng, type) {
-  const newAsset = {
-    id: Date.now(),
-    type: "Feature",
-    properties: {
-      name: `New ${type}`,
-      status: "As-Built",
-      created_at: new Date().toISOString(),
-    },
-    geometry: {
-      type: "Point",
-      coordinates: [latlng.lng, latlng.lat],
-    },
-    pending_sync: 1,
+  // Store geometry and type, then open form modal
+  pendingAssetGeometry = {
+    type: "Point",
+    coordinates: [latlng.lng, latlng.lat],
   };
-  await saveAndRender(newAsset);
+  pendingAssetType = type;
+
+  openAssetModal(type);
 }
 
 // HELPER: Create Cable (LineString)
@@ -221,6 +217,156 @@ async function deleteAsset(assetId) {
 // Expose to global scope for popup button onclick
 window.deleteAsset = deleteAsset;
 
+// ============================================================
+// 3b. DYNAMIC DATA FORM LOGIC
+// ============================================================
+
+// MODAL CONTROL
+function openAssetModal(assetType) {
+  document.getElementById("modal-title").textContent = `New ${assetType}`;
+  document.getElementById("asset-modal").classList.add("active");
+
+  // Reset form to defaults
+  document.getElementById("asset-form").reset();
+  resetTrafficLights();
+  clearPhotoPreview();
+
+  // Reset cursor (was crosshair from tool activation)
+  document.getElementById("map").style.cursor = "";
+}
+
+function closeAssetModal() {
+  document.getElementById("asset-modal").classList.remove("active");
+  pendingAssetGeometry = null;
+  pendingAssetType = null;
+}
+
+// Expose to global scope for HTML onclick
+window.closeAssetModal = closeAssetModal;
+
+// TRAFFIC LIGHT SELECTION
+function initTrafficLights() {
+  document.querySelectorAll(".traffic-light").forEach((container) => {
+    container.querySelectorAll(".traffic-light-btn").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        // Deselect siblings
+        container
+          .querySelectorAll(".traffic-light-btn")
+          .forEach((b) => b.classList.remove("selected"));
+        // Select this one
+        this.classList.add("selected");
+      });
+    });
+  });
+}
+
+function resetTrafficLights() {
+  document.querySelectorAll(".traffic-light-btn").forEach((btn) => {
+    btn.classList.remove("selected");
+  });
+  // Default to "None" (green) for all traffic lights
+  document.querySelectorAll(".traffic-light").forEach((container) => {
+    const greenBtn = container.querySelector(".traffic-light-btn.green");
+    if (greenBtn) greenBtn.classList.add("selected");
+  });
+}
+
+function getTrafficLightValue(fieldName) {
+  const container = document.querySelector(
+    `.traffic-light[data-field="${fieldName}"]`,
+  );
+  const selected = container?.querySelector(".traffic-light-btn.selected");
+  return selected ? selected.dataset.value : "None";
+}
+
+// PHOTO CAPTURE & BASE64 CONVERSION
+let pendingPhotoBase64 = null;
+
+function initPhotoCapture() {
+  const photoInput = document.getElementById("photo");
+  const preview = document.getElementById("photo-preview");
+
+  photoInput.addEventListener("change", function (e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (event) {
+      pendingPhotoBase64 = event.target.result; // Base64 string
+      preview.src = pendingPhotoBase64;
+      preview.classList.add("has-image");
+      document.querySelector(".photo-upload-text").textContent =
+        "✓ Photo captured";
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function clearPhotoPreview() {
+  pendingPhotoBase64 = null;
+  const preview = document.getElementById("photo-preview");
+  preview.src = "";
+  preview.classList.remove("has-image");
+  document.querySelector(".photo-upload-text").textContent =
+    "📷 Tap to capture or select photo";
+}
+
+// FORM SUBMISSION
+async function saveAssetForm() {
+  if (!pendingAssetGeometry || !pendingAssetType) {
+    console.error("No pending asset to save");
+    return;
+  }
+
+  // Collect form data
+  const form = document.getElementById("asset-form");
+
+  const newAsset = {
+    id: Date.now(),
+    type: "Feature",
+    properties: {
+      name: `New ${pendingAssetType}`,
+      assetType: pendingAssetType,
+      status: "As-Built",
+      created_at: new Date().toISOString(),
+
+      // Core Specification
+      material: form.material.value,
+      treatment: form.treatment.value,
+      stoutness: form.stoutness.value,
+      height: form.height.value,
+      transformers: parseInt(form.transformers.value) || 0,
+
+      // Inspection / Condition (Traffic Lights)
+      topRot: getTrafficLightValue("topRot"),
+      externalRot: getTrafficLightValue("externalRot"),
+      birdDamage: getTrafficLightValue("birdDamage"),
+      verticality: form.verticality.value,
+      steelCorrosion: getTrafficLightValue("steelCorrosion"),
+      soundTest: form.soundTest.value,
+
+      // Photo (Base64 or null)
+      photo: pendingPhotoBase64,
+    },
+    geometry: pendingAssetGeometry,
+    pending_sync: 1,
+  };
+
+  // Save and render
+  await saveAndRender(newAsset);
+
+  // Close modal and reset state
+  closeAssetModal();
+  console.log("Asset saved with form data:", newAsset.properties);
+}
+
+// Expose to global scope for HTML onclick
+window.saveAssetForm = saveAssetForm;
+
+// Initialize form handlers on page load
+initTrafficLights();
+initPhotoCapture();
+
 // 4. RENDERING LOGIC
 // A. Render the "Black" Design Layer (Static)
 function renderJobPackLayers() {
@@ -268,18 +414,63 @@ function renderSingleRedMarker(f) {
   // CLICK HANDLER FOR SNAPPING
   marker.on("click", (e) => onFeatureClick(e, f.properties));
 
-  // Popup with delete button for As-Built assets
-  const syncStatus = f.pending_sync === 1 ? "(Unsynced)" : "Synced";
+  // Build popup content with form data
+  const p = f.properties;
+  const syncStatus = f.pending_sync === 1 ? "⏳ Unsynced" : "✓ Synced";
+
+  // Photo thumbnail (if exists)
+  const photoHtml = p.photo
+    ? `<img src="${p.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:4px; margin:8px 0;">`
+    : "";
+
+  // Condition summary with traffic light colors
+  const conditionColors = {
+    None: "#27ae60",
+    Minor: "#f1c40f",
+    "Surface Softening": "#f1c40f",
+    Low: "#f1c40f",
+    "Surface Rust": "#f1c40f",
+    Significant: "#e67e22",
+    Medium: "#e67e22",
+    Pitting: "#e67e22",
+    Critical: "#e74c3c",
+    "Advanced Decay": "#e74c3c",
+    High: "#e74c3c",
+    "Section Loss": "#e74c3c",
+  };
+
+  const getConditionDot = (value) => {
+    const color = conditionColors[value] || "#95a5a6";
+    return `<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${color}; margin-right:4px;"></span>`;
+  };
+
   const popupContent = `
-        <b>${f.properties.name}</b><br>
-        ${syncStatus}<br>
-        <button onclick="deleteAsset(${f.id})" style="margin-top:8px; padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
-    `;
+    <div style="min-width:200px; font-size:0.85rem;">
+      <b style="font-size:1rem;">${p.name}</b><br>
+      <span style="color:#7f8c8d;">${syncStatus}</span>
+      ${photoHtml}
+      <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+      <b>Specification</b><br>
+      ${p.material || "—"} | ${p.height || "—"} | ${p.stoutness || "—"}<br>
+      Treatment: ${p.treatment || "—"}<br>
+      Transformers: ${p.transformers ?? "—"}
+      <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+      <b>Condition</b><br>
+      ${getConditionDot(p.topRot)}Top Rot: ${p.topRot || "—"}<br>
+      ${getConditionDot(p.externalRot)}External Rot: ${p.externalRot || "—"}<br>
+      ${getConditionDot(p.birdDamage)}Bird Damage: ${p.birdDamage || "—"}<br>
+      Verticality: ${p.verticality || "—"}<br>
+      ${getConditionDot(p.steelCorrosion)}Steel Corrosion: ${p.steelCorrosion || "—"}<br>
+      Sound Test: ${p.soundTest || "—"}
+      <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+      <button onclick="deleteAsset(${f.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
+    </div>
+  `;
 
   if (f.pending_sync === 1) {
     marker.setStyle({ fillOpacity: 0.5, dashArray: "2, 2" });
   }
-  marker.bindPopup(popupContent);
+  marker.bindPopup(popupContent, { maxWidth: 280 });
 
   marker.addTo(map);
 }
