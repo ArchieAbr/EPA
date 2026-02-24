@@ -148,6 +148,217 @@
         color: #f39c12;
         border: 2px solid #f39c12;
       }
+
+      /* --- MODAL OVERLAY --- */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 2000;
+        justify-content: center;
+        align-items: center;
+      }
+      .modal-overlay.active {
+        display: flex;
+      }
+
+      /* Modal Container */
+      .modal {
+        background: white;
+        border-radius: 8px;
+        width: 420px;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      }
+      .modal-header {
+        background: #2c3e50;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .modal-header h3 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+      .modal-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        cursor: pointer;
+        line-height: 1;
+      }
+      .modal-close:hover {
+        color: #e74c3c;
+      }
+
+      /* Modal Body */
+      .modal-body {
+        padding: 20px;
+      }
+      .form-section {
+        margin-bottom: 20px;
+      }
+      .form-section-title {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #7f8c8d;
+        margin-bottom: 10px;
+        border-bottom: 1px solid #ecf0f1;
+        padding-bottom: 5px;
+      }
+
+      /* Form Fields */
+      .form-group {
+        margin-bottom: 12px;
+      }
+      .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #34495e;
+        margin-bottom: 4px;
+      }
+      .form-group select,
+      .form-group input[type="number"],
+      .form-group input[type="text"] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #bdc3c7;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        box-sizing: border-box;
+      }
+      .form-group select:focus,
+      .form-group input:focus {
+        outline: none;
+        border-color: #3498db;
+        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+      }
+
+      /* Traffic Light Selector */
+      .traffic-light {
+        display: flex;
+        gap: 8px;
+      }
+      .traffic-light-btn {
+        flex: 1;
+        padding: 8px 4px;
+        border: 2px solid #bdc3c7;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+        font-size: 0.75rem;
+        text-align: center;
+        transition: all 0.2s;
+      }
+      .traffic-light-btn:hover {
+        transform: scale(1.02);
+      }
+      .traffic-light-btn.selected {
+        border-width: 3px;
+        font-weight: bold;
+      }
+      .traffic-light-btn.green {
+        border-color: #27ae60;
+      }
+      .traffic-light-btn.green.selected {
+        background: #27ae60;
+        color: white;
+      }
+      .traffic-light-btn.yellow {
+        border-color: #f1c40f;
+      }
+      .traffic-light-btn.yellow.selected {
+        background: #f1c40f;
+        color: #333;
+      }
+      .traffic-light-btn.orange {
+        border-color: #e67e22;
+      }
+      .traffic-light-btn.orange.selected {
+        background: #e67e22;
+        color: white;
+      }
+      .traffic-light-btn.red {
+        border-color: #e74c3c;
+      }
+      .traffic-light-btn.red.selected {
+        background: #e74c3c;
+        color: white;
+      }
+
+      /* Photo Upload */
+      .photo-upload {
+        border: 2px dashed #bdc3c7;
+        border-radius: 4px;
+        padding: 15px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .photo-upload:hover {
+        border-color: #3498db;
+        background: #f8f9fa;
+      }
+      .photo-upload input {
+        display: none;
+      }
+      .photo-upload-text {
+        color: #7f8c8d;
+        font-size: 0.85rem;
+      }
+      .photo-preview {
+        margin-top: 10px;
+        max-width: 100%;
+        max-height: 150px;
+        border-radius: 4px;
+        display: none;
+      }
+      .photo-preview.has-image {
+        display: block;
+      }
+
+      /* Modal Footer */
+      .modal-footer {
+        padding: 15px 20px;
+        background: #f8f9fa;
+        border-radius: 0 0 8px 8px;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+      .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .btn-cancel {
+        background: #95a5a6;
+        color: white;
+      }
+      .btn-cancel:hover {
+        background: #7f8c8d;
+      }
+      .btn-save {
+        background: #27ae60;
+        color: white;
+      }
+      .btn-save:hover {
+        background: #219a52;
+      }
     </style>
   </head>
   <body>
@@ -205,6 +416,258 @@
         <div id="status" class="checking">Checking...</div>
         <div id="map"></div>
       </main>
+    </div>
+
+    <!-- ASSET DATA FORM MODAL -->
+    <div id="asset-modal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h3 id="modal-title">New Pole</h3>
+          <button class="modal-close" onclick="closeAssetModal()">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="asset-form">
+            <!-- CORE SPECIFICATION -->
+            <div class="form-section">
+              <div class="form-section-title">Core Specification</div>
+
+              <div class="form-group">
+                <label for="material">Material</label>
+                <select id="material" name="material">
+                  <option value="Wood">Wood</option>
+                  <option value="Steel">Steel</option>
+                  <option value="Concrete">Concrete</option>
+                  <option value="Composite">Composite</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="treatment">Treatment Type</label>
+                <select id="treatment" name="treatment">
+                  <option value="Creosote">Creosote</option>
+                  <option value="Water Soluble (CCA)">
+                    Water Soluble (CCA)
+                  </option>
+                  <option value="Light Oil">Light Oil</option>
+                  <option value="N/A">N/A</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="stoutness">Pole Stoutness</label>
+                <select id="stoutness" name="stoutness">
+                  <option value="Light">Light</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Stout">Stout</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="height">Height / Class</label>
+                <select id="height" name="height">
+                  <option value="9m">9m</option>
+                  <option value="11m">11m</option>
+                  <option value="13m">13m</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="transformers">Number of Transformers</label>
+                <input
+                  type="number"
+                  id="transformers"
+                  name="transformers"
+                  min="0"
+                  max="4"
+                  value="0"
+                />
+              </div>
+            </div>
+
+            <!-- INSPECTION / CONDITION -->
+            <div class="form-section">
+              <div class="form-section-title">Inspection / Condition</div>
+
+              <div class="form-group">
+                <label>Pole Top Rot</label>
+                <div class="traffic-light" data-field="topRot">
+                  <button
+                    type="button"
+                    class="traffic-light-btn green"
+                    data-value="None"
+                  >
+                    None
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn yellow"
+                    data-value="Minor"
+                  >
+                    Minor
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn orange"
+                    data-value="Significant"
+                  >
+                    Significant
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn red"
+                    data-value="Critical"
+                  >
+                    Critical
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>External Rot (Ground Level)</label>
+                <div class="traffic-light" data-field="externalRot">
+                  <button
+                    type="button"
+                    class="traffic-light-btn green"
+                    data-value="None"
+                  >
+                    None
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn yellow"
+                    data-value="Surface Softening"
+                  >
+                    Surface
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn red"
+                    data-value="Advanced Decay"
+                  >
+                    Decay
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Woodpecker / Bird Damage</label>
+                <div class="traffic-light" data-field="birdDamage">
+                  <button
+                    type="button"
+                    class="traffic-light-btn green"
+                    data-value="None"
+                  >
+                    None
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn yellow"
+                    data-value="Low"
+                  >
+                    Low
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn orange"
+                    data-value="Medium"
+                  >
+                    Medium
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn red"
+                    data-value="High"
+                  >
+                    High
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="verticality">Verticality</label>
+                <select id="verticality" name="verticality">
+                  <option value="Plumb">Plumb</option>
+                  <option value="Leaning <5°">Leaning &lt;5°</option>
+                  <option value="Leaning >5°">Leaning &gt;5°</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Steel Corrosion (if applicable)</label>
+                <div class="traffic-light" data-field="steelCorrosion">
+                  <button
+                    type="button"
+                    class="traffic-light-btn green"
+                    data-value="None"
+                  >
+                    None
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn yellow"
+                    data-value="Surface Rust"
+                  >
+                    Surface
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn orange"
+                    data-value="Pitting"
+                  >
+                    Pitting
+                  </button>
+                  <button
+                    type="button"
+                    class="traffic-light-btn red"
+                    data-value="Section Loss"
+                  >
+                    Section Loss
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="soundTest">Sound Test Result</label>
+                <select id="soundTest" name="soundTest">
+                  <option value="Solid">Solid</option>
+                  <option value="Hollow">Hollow</option>
+                  <option value="Indeterminate">Indeterminate</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- PHOTO ATTACHMENT -->
+            <div class="form-section">
+              <div class="form-section-title">Photo Attachment</div>
+              <div class="form-group">
+                <label class="photo-upload" id="photo-upload-label">
+                  <input
+                    type="file"
+                    id="photo"
+                    name="photo"
+                    accept="image/*"
+                    capture="environment"
+                  />
+                  <span class="photo-upload-text"
+                    >📷 Tap to capture or select photo</span
+                  >
+                  <img id="photo-preview" class="photo-preview" alt="Preview" />
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-cancel" onclick="closeAssetModal()">
+            Cancel
+          </button>
+          <button class="btn btn-save" onclick="saveAssetForm()">
+            Save Asset
+          </button>
+        </div>
+      </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
