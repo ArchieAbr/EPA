@@ -218,31 +218,24 @@ function openAssetModal(assetType) {
   document.getElementById("modal-title").textContent = `New ${assetType}`;
   document.getElementById("asset-modal").classList.add("active");
 
-  // Reset form to defaults
-  document.getElementById("asset-form").reset();
+  // Inject the correct form template
+  const container = document.getElementById("form-fields-container");
+  container.innerHTML = getFormTemplate(assetType);
+
+  // Initialize interactive elements (must be done after template injection)
+  initTrafficLights();
+  initGradeSelectors();
+  initPhotoCapture();
+
+  // Reset to defaults
   resetTrafficLights();
   resetGradeSelectors();
   clearPhotoPreview();
 
-  // Show/hide correct form fields based on asset type
-  const poleFields = document.getElementById("pole-form-fields");
-  const transformerFields = document.getElementById("transformer-form-fields");
-  const cableFields = document.getElementById("cable-form-fields");
-
-  // Hide all form fields first
-  poleFields.classList.remove("active");
-  transformerFields.classList.remove("active");
-  cableFields.classList.remove("active");
-
+  // Handle transformer-specific GMT fields
   if (assetType === "Transformer") {
-    transformerFields.classList.add("active");
-    // Reset GMT-only fields visibility
-    document.getElementById("gmt-only-fields").classList.remove("active");
-  } else if (assetType === "Cable") {
-    cableFields.classList.add("active");
-  } else {
-    // Default to Pole
-    poleFields.classList.add("active");
+    const gmtFields = document.getElementById("gmt-only-fields");
+    if (gmtFields) gmtFields.classList.remove("active");
   }
 
   // Reset cursor (was crosshair from tool activation)
@@ -509,11 +502,6 @@ async function saveAssetForm() {
 
 // Expose to global scope for HTML onclick
 window.saveAssetForm = saveAssetForm;
-
-// Initialize form handlers on page load
-initTrafficLights();
-initGradeSelectors();
-initPhotoCapture();
 
 // 4. RENDERING LOGIC
 // A. Render the "Black" Design Layer (Static)
