@@ -229,7 +229,22 @@ function openAssetModal(assetType) {
   // Reset form to defaults
   document.getElementById("asset-form").reset();
   resetTrafficLights();
+  resetGradeSelectors();
   clearPhotoPreview();
+
+  // Show/hide correct form fields based on asset type
+  const poleFields = document.getElementById("pole-form-fields");
+  const transformerFields = document.getElementById("transformer-form-fields");
+
+  if (assetType === "Transformer") {
+    poleFields.classList.remove("active");
+    transformerFields.classList.add("active");
+    // Reset GMT-only fields visibility
+    document.getElementById("gmt-only-fields").classList.remove("active");
+  } else {
+    poleFields.classList.add("active");
+    transformerFields.classList.remove("active");
+  }
 
   // Reset cursor (was crosshair from tool activation)
   document.getElementById("map").style.cursor = "";
@@ -279,6 +294,56 @@ function getTrafficLightValue(fieldName) {
   return selected ? selected.dataset.value : "None";
 }
 
+// GRADE SELECTOR (1-5 for Transformers)
+function initGradeSelectors() {
+  document.querySelectorAll(".grade-selector").forEach((container) => {
+    container.querySelectorAll(".grade-btn").forEach((btn) => {
+      btn.addEventListener("click", function () {
+        // Deselect siblings
+        container
+          .querySelectorAll(".grade-btn")
+          .forEach((b) => b.classList.remove("selected"));
+        // Select this one
+        this.classList.add("selected");
+      });
+    });
+  });
+}
+
+function resetGradeSelectors() {
+  document.querySelectorAll(".grade-btn").forEach((btn) => {
+    btn.classList.remove("selected");
+  });
+  // Default to Grade 1 (best) for all grade selectors
+  document.querySelectorAll(".grade-selector").forEach((container) => {
+    const grade1Btn = container.querySelector(".grade-btn.grade-1");
+    if (grade1Btn) grade1Btn.classList.add("selected");
+  });
+}
+
+function getGradeValue(fieldName) {
+  const container = document.querySelector(
+    `.grade-selector[data-field="${fieldName}"]`,
+  );
+  const selected = container?.querySelector(".grade-btn.selected");
+  return selected ? parseInt(selected.dataset.value) : 1;
+}
+
+// GMT-ONLY FIELDS TOGGLE
+function toggleGMTFields() {
+  const mountingSelect = document.getElementById("tx-mounting");
+  const gmtFields = document.getElementById("gmt-only-fields");
+
+  if (mountingSelect.value === "Ground Mounted") {
+    gmtFields.classList.add("active");
+  } else {
+    gmtFields.classList.remove("active");
+  }
+}
+
+// Expose to global scope for HTML onchange
+window.toggleGMTFields = toggleGMTFields;
+
 // PHOTO CAPTURE & BASE64 CONVERSION
 let pendingPhotoBase64 = null;
 
@@ -320,11 +385,53 @@ async function saveAssetForm() {
 
   // Collect form data
   const form = document.getElementById("asset-form");
+  let properties = {};
 
-  const newAsset = {
-    id: Date.now(),
-    type: "Feature",
-    properties: {
+  if (pendingAssetType === "Transformer") {
+    // TRANSFORMER FORM DATA
+    properties = {
+      name: `New ${pendingAssetType}`,
+      assetType: pendingAssetType,
+      status: "As-Built",
+      created_at: new Date().toISOString(),
+
+      // Core Specification
+      mounting: form["tx-mounting"].value,
+      rating: form["tx-rating"].value,
+      manufacturer: form["tx-manufacturer"].value,
+      serialNo: form["tx-serial"].value,
+      yearOfManufacture: parseInt(form["tx-year"].value) || null,
+      coolingMedium: form["tx-cooling"].value,
+      breatherType: form["tx-breather"].value,
+
+      // Inspection / Condition
+      tankGrade: getGradeValue("tx-tankGrade"),
+      tankIssues: {
+        surfaceRust: form["tx-surfaceRust"]?.checked || false,
+        pitting: form["tx-pitting"]?.checked || false,
+        weepingOil: form["tx-weepingOil"]?.checked || false,
+        activeLeak: form["tx-activeLeak"]?.checked || false,
+      },
+      finsGrade: getGradeValue("tx-finsGrade"),
+      bushings: form["tx-bushings"].value,
+      silicaGel: form["tx-silicaGel"].value,
+      oilLevel: form["tx-oilLevel"].value,
+
+      // Advanced Data (GMT Only)
+      oilAcidity: parseFloat(form["tx-oilAcidity"]?.value) || null,
+      moistureContent: parseInt(form["tx-moisture"]?.value) || null,
+      breakdownStrength: parseInt(form["tx-breakdown"]?.value) || null,
+
+      // Consequence of Failure
+      bunding: form["tx-bunding"].value,
+      watercourseProximity: form["tx-watercourse"].value,
+
+      // Photo
+      photo: pendingPhotoBase64,
+    };
+  } else {
+    // POLE FORM DATA (existing logic)
+    properties = {
       name: `New ${pendingAssetType}`,
       assetType: pendingAssetType,
       status: "As-Built",
@@ -345,9 +452,15 @@ async function saveAssetForm() {
       steelCorrosion: getTrafficLightValue("steelCorrosion"),
       soundTest: form.soundTest.value,
 
-      // Photo (Base64 or null)
+      // Photo
       photo: pendingPhotoBase64,
-    },
+    };
+  }
+
+  const newAsset = {
+    id: Date.now(),
+    type: "Feature",
+    properties: properties,
     geometry: pendingAssetGeometry,
     pending_sync: 1,
   };
@@ -365,6 +478,7 @@ window.saveAssetForm = saveAssetForm;
 
 // Initialize form handlers on page load
 initTrafficLights();
+initGradeSelectors();
 initPhotoCapture();
 
 // 4. RENDERING LOGIC
@@ -414,63 +528,130 @@ function renderSingleRedMarker(f) {
   // CLICK HANDLER FOR SNAPPING
   marker.on("click", (e) => onFeatureClick(e, f.properties));
 
-  // Build popup content with form data
+  // Build popup content based on asset type
   const p = f.properties;
-  const syncStatus = f.pending_sync === 1 ? "⏳ Unsynced" : "✓ Synced";
+  const syncStatus = f.pending_sync === 1 ? "Unsynced" : "Synced";
 
   // Photo thumbnail (if exists)
   const photoHtml = p.photo
     ? `<img src="${p.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:4px; margin:8px 0;">`
     : "";
 
-  // Condition summary with traffic light colors
-  const conditionColors = {
-    None: "#27ae60",
-    Minor: "#f1c40f",
-    "Surface Softening": "#f1c40f",
-    Low: "#f1c40f",
-    "Surface Rust": "#f1c40f",
-    Significant: "#e67e22",
-    Medium: "#e67e22",
-    Pitting: "#e67e22",
-    Critical: "#e74c3c",
-    "Advanced Decay": "#e74c3c",
-    High: "#e74c3c",
-    "Section Loss": "#e74c3c",
-  };
+  let popupContent = "";
 
-  const getConditionDot = (value) => {
-    const color = conditionColors[value] || "#95a5a6";
-    return `<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${color}; margin-right:4px;"></span>`;
-  };
+  if (p.assetType === "Transformer") {
+    // TRANSFORMER POPUP
+    const gradeColors = {
+      1: "#27ae60",
+      2: "#2ecc71",
+      3: "#f1c40f",
+      4: "#e67e22",
+      5: "#e74c3c",
+    };
+    const getGradeDot = (grade) => {
+      const color = gradeColors[grade] || "#95a5a6";
+      return `<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${color}; margin-right:4px;"></span>`;
+    };
 
-  const popupContent = `
-    <div style="min-width:200px; font-size:0.85rem;">
-      <b style="font-size:1rem;">${p.name}</b><br>
-      <span style="color:#7f8c8d;">${syncStatus}</span>
-      ${photoHtml}
-      <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-      <b>Specification</b><br>
-      ${p.material || "—"} | ${p.height || "—"} | ${p.stoutness || "—"}<br>
-      Treatment: ${p.treatment || "—"}<br>
-      Transformers: ${p.transformers ?? "—"}
-      <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-      <b>Condition</b><br>
-      ${getConditionDot(p.topRot)}Top Rot: ${p.topRot || "—"}<br>
-      ${getConditionDot(p.externalRot)}External Rot: ${p.externalRot || "—"}<br>
-      ${getConditionDot(p.birdDamage)}Bird Damage: ${p.birdDamage || "—"}<br>
-      Verticality: ${p.verticality || "—"}<br>
-      ${getConditionDot(p.steelCorrosion)}Steel Corrosion: ${p.steelCorrosion || "—"}<br>
-      Sound Test: ${p.soundTest || "—"}
-      <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-      <button onclick="deleteAsset(${f.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
-    </div>
-  `;
+    // Tank issues summary
+    const tankIssues = p.tankIssues || {};
+    const issuesList = [];
+    if (tankIssues.surfaceRust) issuesList.push("Surface Rust");
+    if (tankIssues.pitting) issuesList.push("Pitting");
+    if (tankIssues.weepingOil) issuesList.push("Weeping Oil");
+    if (tankIssues.activeLeak) issuesList.push("Active Leak");
+    const issuesText = issuesList.length > 0 ? issuesList.join(", ") : "None";
+
+    // GMT-only data (if present)
+    const gmtData =
+      p.mounting === "Ground Mounted" &&
+      (p.oilAcidity || p.moistureContent || p.breakdownStrength)
+        ? `<hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+         <b>Oil Analysis</b><br>
+         Acidity: ${p.oilAcidity ?? "—"} mgKOH/g<br>
+         Moisture: ${p.moistureContent ?? "—"} ppm<br>
+         Breakdown: ${p.breakdownStrength ?? "—"} kV`
+        : "";
+
+    popupContent = `
+      <div style="min-width:220px; font-size:0.85rem;">
+        <b style="font-size:1rem;">${p.name}</b><br>
+        <span style="color:#7f8c8d;">${syncStatus}</span>
+        ${photoHtml}
+        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+        <b>Specification</b><br>
+        ${p.mounting || "—"} | ${p.rating || "—"} kVA<br>
+        ${p.manufacturer || "—"} (${p.yearOfManufacture || "—"})<br>
+        Serial: ${p.serialNo || "—"}<br>
+        Cooling: ${p.coolingMedium || "—"}<br>
+        Breather: ${p.breatherType || "—"}
+        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+        <b>Condition</b><br>
+        ${getGradeDot(p.tankGrade)}Tank Grade: ${p.tankGrade || "—"}<br>
+        Issues: ${issuesText}<br>
+        ${getGradeDot(p.finsGrade)}Fins Grade: ${p.finsGrade || "—"}<br>
+        Bushings: ${p.bushings || "—"}<br>
+        Silica Gel: ${p.silicaGel || "—"}<br>
+        Oil Level: ${p.oilLevel || "—"}
+        ${gmtData}
+        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+        <b>CoF</b><br>
+        Bunding: ${p.bunding || "—"}<br>
+        Watercourse: ${p.watercourseProximity || "—"}
+        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+        <button onclick="deleteAsset(${f.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
+      </div>
+    `;
+  } else {
+    // POLE POPUP (existing logic)
+    const conditionColors = {
+      None: "#27ae60",
+      Minor: "#f1c40f",
+      "Surface Softening": "#f1c40f",
+      Low: "#f1c40f",
+      "Surface Rust": "#f1c40f",
+      Significant: "#e67e22",
+      Medium: "#e67e22",
+      Pitting: "#e67e22",
+      Critical: "#e74c3c",
+      "Advanced Decay": "#e74c3c",
+      High: "#e74c3c",
+      "Section Loss": "#e74c3c",
+    };
+
+    const getConditionDot = (value) => {
+      const color = conditionColors[value] || "#95a5a6";
+      return `<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${color}; margin-right:4px;"></span>`;
+    };
+
+    popupContent = `
+      <div style="min-width:200px; font-size:0.85rem;">
+        <b style="font-size:1rem;">${p.name}</b><br>
+        <span style="color:#7f8c8d;">${syncStatus}</span>
+        ${photoHtml}
+        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+        <b>Specification</b><br>
+        ${p.material || "—"} | ${p.height || "—"} | ${p.stoutness || "—"}<br>
+        Treatment: ${p.treatment || "—"}<br>
+        Transformers: ${p.transformers ?? "—"}
+        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+        <b>Condition</b><br>
+        ${getConditionDot(p.topRot)}Top Rot: ${p.topRot || "—"}<br>
+        ${getConditionDot(p.externalRot)}External Rot: ${p.externalRot || "—"}<br>
+        ${getConditionDot(p.birdDamage)}Bird Damage: ${p.birdDamage || "—"}<br>
+        Verticality: ${p.verticality || "—"}<br>
+        ${getConditionDot(p.steelCorrosion)}Steel Corrosion: ${p.steelCorrosion || "—"}<br>
+        Sound Test: ${p.soundTest || "—"}
+        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+        <button onclick="deleteAsset(${f.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
+      </div>
+    `;
+  }
 
   if (f.pending_sync === 1) {
     marker.setStyle({ fillOpacity: 0.5, dashArray: "2, 2" });
   }
-  marker.bindPopup(popupContent, { maxWidth: 280 });
+  marker.bindPopup(popupContent, { maxWidth: 300 });
 
   marker.addTo(map);
 }

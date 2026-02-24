@@ -297,6 +297,106 @@
         color: white;
       }
 
+      /* Grade 1-5 Selector (for Transformers) */
+      .grade-selector {
+        display: flex;
+        gap: 6px;
+      }
+      .grade-btn {
+        flex: 1;
+        padding: 10px 4px;
+        border: 2px solid #bdc3c7;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+        font-size: 0.8rem;
+        text-align: center;
+        transition: all 0.2s;
+      }
+      .grade-btn:hover {
+        transform: scale(1.02);
+      }
+      .grade-btn.selected {
+        border-width: 3px;
+        font-weight: bold;
+      }
+      .grade-btn.grade-1 {
+        border-color: #27ae60;
+      }
+      .grade-btn.grade-1.selected {
+        background: #27ae60;
+        color: white;
+      }
+      .grade-btn.grade-2 {
+        border-color: #2ecc71;
+      }
+      .grade-btn.grade-2.selected {
+        background: #2ecc71;
+        color: white;
+      }
+      .grade-btn.grade-3 {
+        border-color: #f1c40f;
+      }
+      .grade-btn.grade-3.selected {
+        background: #f1c40f;
+        color: #333;
+      }
+      .grade-btn.grade-4 {
+        border-color: #e67e22;
+      }
+      .grade-btn.grade-4.selected {
+        background: #e67e22;
+        color: white;
+      }
+      .grade-btn.grade-5 {
+        border-color: #e74c3c;
+      }
+      .grade-btn.grade-5.selected {
+        background: #e74c3c;
+        color: white;
+      }
+
+      /* Checkbox Group */
+      .checkbox-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .checkbox-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 10px;
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        cursor: pointer;
+      }
+      .checkbox-item:hover {
+        background: #ecf0f1;
+      }
+      .checkbox-item input {
+        margin: 0;
+      }
+
+      /* Conditional Form Sections */
+      .form-fields-section {
+        display: none;
+      }
+      .form-fields-section.active {
+        display: block;
+      }
+      .gmt-only-section {
+        display: none;
+        border-left: 3px solid #3498db;
+        padding-left: 12px;
+        margin-left: 4px;
+      }
+      .gmt-only-section.active {
+        display: block;
+      }
+
       /* Photo Upload */
       .photo-upload {
         border: 2px dashed #bdc3c7;
@@ -429,216 +529,512 @@
         </div>
         <div class="modal-body">
           <form id="asset-form">
-            <!-- CORE SPECIFICATION -->
-            <div class="form-section">
-              <div class="form-section-title">Core Specification</div>
+            <!-- ==================== POLE FORM FIELDS ==================== -->
+            <div id="pole-form-fields" class="form-fields-section active">
+              <!-- CORE SPECIFICATION -->
+              <div class="form-section">
+                <div class="form-section-title">Core Specification</div>
 
-              <div class="form-group">
-                <label for="material">Material</label>
-                <select id="material" name="material">
-                  <option value="Wood">Wood</option>
-                  <option value="Steel">Steel</option>
-                  <option value="Concrete">Concrete</option>
-                  <option value="Composite">Composite</option>
-                </select>
+                <div class="form-group">
+                  <label for="material">Material</label>
+                  <select id="material" name="material">
+                    <option value="Wood">Wood</option>
+                    <option value="Steel">Steel</option>
+                    <option value="Concrete">Concrete</option>
+                    <option value="Composite">Composite</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="treatment">Treatment Type</label>
+                  <select id="treatment" name="treatment">
+                    <option value="Creosote">Creosote</option>
+                    <option value="Water Soluble (CCA)">
+                      Water Soluble (CCA)
+                    </option>
+                    <option value="Light Oil">Light Oil</option>
+                    <option value="N/A">N/A</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="stoutness">Pole Stoutness</label>
+                  <select id="stoutness" name="stoutness">
+                    <option value="Light">Light</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Stout">Stout</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="height">Height / Class</label>
+                  <select id="height" name="height">
+                    <option value="9m">9m</option>
+                    <option value="11m">11m</option>
+                    <option value="13m">13m</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="transformers">Number of Transformers</label>
+                  <input
+                    type="number"
+                    id="transformers"
+                    name="transformers"
+                    min="0"
+                    max="4"
+                    value="0"
+                  />
+                </div>
               </div>
 
-              <div class="form-group">
-                <label for="treatment">Treatment Type</label>
-                <select id="treatment" name="treatment">
-                  <option value="Creosote">Creosote</option>
-                  <option value="Water Soluble (CCA)">
-                    Water Soluble (CCA)
-                  </option>
-                  <option value="Light Oil">Light Oil</option>
-                  <option value="N/A">N/A</option>
-                </select>
-              </div>
+              <!-- INSPECTION / CONDITION -->
+              <div class="form-section">
+                <div class="form-section-title">Inspection / Condition</div>
 
-              <div class="form-group">
-                <label for="stoutness">Pole Stoutness</label>
-                <select id="stoutness" name="stoutness">
-                  <option value="Light">Light</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Stout">Stout</option>
-                </select>
-              </div>
+                <div class="form-group">
+                  <label>Pole Top Rot</label>
+                  <div class="traffic-light" data-field="topRot">
+                    <button
+                      type="button"
+                      class="traffic-light-btn green"
+                      data-value="None"
+                    >
+                      None
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn yellow"
+                      data-value="Minor"
+                    >
+                      Minor
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn orange"
+                      data-value="Significant"
+                    >
+                      Significant
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn red"
+                      data-value="Critical"
+                    >
+                      Critical
+                    </button>
+                  </div>
+                </div>
 
-              <div class="form-group">
-                <label for="height">Height / Class</label>
-                <select id="height" name="height">
-                  <option value="9m">9m</option>
-                  <option value="11m">11m</option>
-                  <option value="13m">13m</option>
-                </select>
-              </div>
+                <div class="form-group">
+                  <label>External Rot (Ground Level)</label>
+                  <div class="traffic-light" data-field="externalRot">
+                    <button
+                      type="button"
+                      class="traffic-light-btn green"
+                      data-value="None"
+                    >
+                      None
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn yellow"
+                      data-value="Surface Softening"
+                    >
+                      Surface
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn red"
+                      data-value="Advanced Decay"
+                    >
+                      Decay
+                    </button>
+                  </div>
+                </div>
 
-              <div class="form-group">
-                <label for="transformers">Number of Transformers</label>
-                <input
-                  type="number"
-                  id="transformers"
-                  name="transformers"
-                  min="0"
-                  max="4"
-                  value="0"
-                />
+                <div class="form-group">
+                  <label>Woodpecker / Bird Damage</label>
+                  <div class="traffic-light" data-field="birdDamage">
+                    <button
+                      type="button"
+                      class="traffic-light-btn green"
+                      data-value="None"
+                    >
+                      None
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn yellow"
+                      data-value="Low"
+                    >
+                      Low
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn orange"
+                      data-value="Medium"
+                    >
+                      Medium
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn red"
+                      data-value="High"
+                    >
+                      High
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="verticality">Verticality</label>
+                  <select id="verticality" name="verticality">
+                    <option value="Plumb">Plumb</option>
+                    <option value="Leaning <5°">Leaning &lt;5°</option>
+                    <option value="Leaning >5°">Leaning &gt;5°</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label>Steel Corrosion (if applicable)</label>
+                  <div class="traffic-light" data-field="steelCorrosion">
+                    <button
+                      type="button"
+                      class="traffic-light-btn green"
+                      data-value="None"
+                    >
+                      None
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn yellow"
+                      data-value="Surface Rust"
+                    >
+                      Surface
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn orange"
+                      data-value="Pitting"
+                    >
+                      Pitting
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn red"
+                      data-value="Section Loss"
+                    >
+                      Section Loss
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="soundTest">Sound Test Result</label>
+                  <select id="soundTest" name="soundTest">
+                    <option value="Solid">Solid</option>
+                    <option value="Hollow">Hollow</option>
+                    <option value="Indeterminate">Indeterminate</option>
+                  </select>
+                </div>
               </div>
             </div>
+            <!-- END POLE FORM FIELDS -->
 
-            <!-- INSPECTION / CONDITION -->
-            <div class="form-section">
-              <div class="form-section-title">Inspection / Condition</div>
+            <!-- ==================== TRANSFORMER FORM FIELDS ==================== -->
+            <div id="transformer-form-fields" class="form-fields-section">
+              <!-- CORE SPECIFICATION -->
+              <div class="form-section">
+                <div class="form-section-title">Core Specification</div>
 
-              <div class="form-group">
-                <label>Pole Top Rot</label>
-                <div class="traffic-light" data-field="topRot">
-                  <button
-                    type="button"
-                    class="traffic-light-btn green"
-                    data-value="None"
+                <div class="form-group">
+                  <label for="tx-mounting">Mounting Type</label>
+                  <select
+                    id="tx-mounting"
+                    name="tx-mounting"
+                    onchange="toggleGMTFields()"
                   >
-                    None
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn yellow"
-                    data-value="Minor"
-                  >
-                    Minor
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn orange"
-                    data-value="Significant"
-                  >
-                    Significant
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn red"
-                    data-value="Critical"
-                  >
-                    Critical
-                  </button>
+                    <option value="Pole Mounted">Pole Mounted (PMT)</option>
+                    <option value="Ground Mounted">Ground Mounted (GMT)</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-rating">Rating (kVA)</label>
+                  <select id="tx-rating" name="tx-rating">
+                    <option value="25">25 kVA</option>
+                    <option value="50">50 kVA</option>
+                    <option value="100">100 kVA</option>
+                    <option value="200">200 kVA</option>
+                    <option value="315">315 kVA</option>
+                    <option value="500">500 kVA</option>
+                    <option value="750">750 kVA</option>
+                    <option value="1000">1000 kVA</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-manufacturer">Manufacturer</label>
+                  <input
+                    type="text"
+                    id="tx-manufacturer"
+                    name="tx-manufacturer"
+                    placeholder="e.g., ABB, Siemens"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-serial">Serial Number</label>
+                  <input
+                    type="text"
+                    id="tx-serial"
+                    name="tx-serial"
+                    placeholder="Enter serial number"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-year">Year of Manufacture</label>
+                  <input
+                    type="number"
+                    id="tx-year"
+                    name="tx-year"
+                    min="1950"
+                    max="2030"
+                    placeholder="e.g., 2015"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-cooling">Cooling Medium</label>
+                  <select id="tx-cooling" name="tx-cooling">
+                    <option value="Mineral Oil">Mineral Oil</option>
+                    <option value="Midel (Ester)">Midel (Ester)</option>
+                    <option value="Dry Type">Dry Type</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-breather">Breather Type</label>
+                  <select id="tx-breather" name="tx-breather">
+                    <option value="Free Breathing">Free Breathing</option>
+                    <option value="Hermetically Sealed">
+                      Hermetically Sealed
+                    </option>
+                  </select>
                 </div>
               </div>
 
-              <div class="form-group">
-                <label>External Rot (Ground Level)</label>
-                <div class="traffic-light" data-field="externalRot">
-                  <button
-                    type="button"
-                    class="traffic-light-btn green"
-                    data-value="None"
-                  >
-                    None
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn yellow"
-                    data-value="Surface Softening"
-                  >
-                    Surface
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn red"
-                    data-value="Advanced Decay"
-                  >
-                    Decay
-                  </button>
+              <!-- INSPECTION / CONDITION -->
+              <div class="form-section">
+                <div class="form-section-title">Inspection / Condition</div>
+
+                <div class="form-group">
+                  <label>Main Tank Condition (Grade 1-5)</label>
+                  <div class="grade-selector" data-field="tx-tankGrade">
+                    <button
+                      type="button"
+                      class="grade-btn grade-1"
+                      data-value="1"
+                    >
+                      1 New
+                    </button>
+                    <button
+                      type="button"
+                      class="grade-btn grade-2"
+                      data-value="2"
+                    >
+                      2 Good
+                    </button>
+                    <button
+                      type="button"
+                      class="grade-btn grade-3"
+                      data-value="3"
+                    >
+                      3 Fair
+                    </button>
+                    <button
+                      type="button"
+                      class="grade-btn grade-4"
+                      data-value="4"
+                    >
+                      4 Poor
+                    </button>
+                    <button
+                      type="button"
+                      class="grade-btn grade-5"
+                      data-value="5"
+                    >
+                      5 Failed
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Main Tank Issues</label>
+                  <div class="checkbox-group">
+                    <label class="checkbox-item">
+                      <input type="checkbox" name="tx-surfaceRust" value="1" />
+                      Surface Rust
+                    </label>
+                    <label class="checkbox-item">
+                      <input type="checkbox" name="tx-pitting" value="1" />
+                      Pitting
+                    </label>
+                    <label class="checkbox-item">
+                      <input type="checkbox" name="tx-weepingOil" value="1" />
+                      Weeping Oil
+                    </label>
+                    <label class="checkbox-item">
+                      <input type="checkbox" name="tx-activeLeak" value="1" />
+                      Active Leak
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Cooling Fins / Radiator (Grade 1-5)</label>
+                  <div class="grade-selector" data-field="tx-finsGrade">
+                    <button
+                      type="button"
+                      class="grade-btn grade-1"
+                      data-value="1"
+                    >
+                      1
+                    </button>
+                    <button
+                      type="button"
+                      class="grade-btn grade-2"
+                      data-value="2"
+                    >
+                      2
+                    </button>
+                    <button
+                      type="button"
+                      class="grade-btn grade-3"
+                      data-value="3"
+                    >
+                      3
+                    </button>
+                    <button
+                      type="button"
+                      class="grade-btn grade-4"
+                      data-value="4"
+                    >
+                      4
+                    </button>
+                    <button
+                      type="button"
+                      class="grade-btn grade-5"
+                      data-value="5"
+                    >
+                      5
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-bushings">Bushings</label>
+                  <select id="tx-bushings" name="tx-bushings">
+                    <option value="Good">Good</option>
+                    <option value="Chipped">Chipped</option>
+                    <option value="Cracked">Cracked</option>
+                    <option value="Leaking">Leaking</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-silicaGel">Silica Gel State</label>
+                  <select id="tx-silicaGel" name="tx-silicaGel">
+                    <option value="Blue/Orange (Good)">
+                      Blue/Orange (Good)
+                    </option>
+                    <option value="Pink/Green (Saturated)">
+                      Pink/Green (Saturated)
+                    </option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-oilLevel">Oil Level</label>
+                  <select id="tx-oilLevel" name="tx-oilLevel">
+                    <option value="Normal">Normal</option>
+                    <option value="Low">Low</option>
+                    <option value="Critical">Critical</option>
+                  </select>
                 </div>
               </div>
 
-              <div class="form-group">
-                <label>Woodpecker / Bird Damage</label>
-                <div class="traffic-light" data-field="birdDamage">
-                  <button
-                    type="button"
-                    class="traffic-light-btn green"
-                    data-value="None"
-                  >
-                    None
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn yellow"
-                    data-value="Low"
-                  >
-                    Low
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn orange"
-                    data-value="Medium"
-                  >
-                    Medium
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn red"
-                    data-value="High"
-                  >
-                    High
-                  </button>
+              <!-- ADVANCED DATA (GMT ONLY) -->
+              <div id="gmt-only-fields" class="form-section gmt-only-section">
+                <div class="form-section-title">
+                  Advanced Data (Ground Mounted)
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-oilAcidity">Oil Acidity (mgKOH/g)</label>
+                  <input
+                    type="number"
+                    id="tx-oilAcidity"
+                    name="tx-oilAcidity"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g., 0.15"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-moisture">Moisture Content (ppm)</label>
+                  <input
+                    type="number"
+                    id="tx-moisture"
+                    name="tx-moisture"
+                    min="0"
+                    placeholder="e.g., 25"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-breakdown">Breakdown Strength (kV)</label>
+                  <input
+                    type="number"
+                    id="tx-breakdown"
+                    name="tx-breakdown"
+                    min="0"
+                    placeholder="e.g., 45"
+                  />
                 </div>
               </div>
 
-              <div class="form-group">
-                <label for="verticality">Verticality</label>
-                <select id="verticality" name="verticality">
-                  <option value="Plumb">Plumb</option>
-                  <option value="Leaning <5°">Leaning &lt;5°</option>
-                  <option value="Leaning >5°">Leaning &gt;5°</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label>Steel Corrosion (if applicable)</label>
-                <div class="traffic-light" data-field="steelCorrosion">
-                  <button
-                    type="button"
-                    class="traffic-light-btn green"
-                    data-value="None"
-                  >
-                    None
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn yellow"
-                    data-value="Surface Rust"
-                  >
-                    Surface
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn orange"
-                    data-value="Pitting"
-                  >
-                    Pitting
-                  </button>
-                  <button
-                    type="button"
-                    class="traffic-light-btn red"
-                    data-value="Section Loss"
-                  >
-                    Section Loss
-                  </button>
+              <!-- CONSEQUENCE OF FAILURE -->
+              <div class="form-section">
+                <div class="form-section-title">
+                  Consequence of Failure (CoF)
                 </div>
-              </div>
 
-              <div class="form-group">
-                <label for="soundTest">Sound Test Result</label>
-                <select id="soundTest" name="soundTest">
-                  <option value="Solid">Solid</option>
-                  <option value="Hollow">Hollow</option>
-                  <option value="Indeterminate">Indeterminate</option>
-                </select>
+                <div class="form-group">
+                  <label for="tx-bunding">Bunding</label>
+                  <select id="tx-bunding" name="tx-bunding">
+                    <option value="None">None</option>
+                    <option value="Concrete">Concrete</option>
+                    <option value="Gravel">Gravel</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="tx-watercourse">Proximity to Watercourse</label>
+                  <select id="tx-watercourse" name="tx-watercourse">
+                    <option value=">50m">&gt;50m</option>
+                    <option value="10-50m">10-50m</option>
+                    <option value="<10m">&lt;10m (Critical)</option>
+                  </select>
+                </div>
               </div>
             </div>
+            <!-- END TRANSFORMER FORM FIELDS -->
 
-            <!-- PHOTO ATTACHMENT -->
+            <!-- PHOTO ATTACHMENT (Shared) -->
             <div class="form-section">
               <div class="form-section-title">Photo Attachment</div>
               <div class="form-group">
