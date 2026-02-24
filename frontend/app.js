@@ -169,25 +169,17 @@ async function createPointAsset(latlng, type) {
 
 // HELPER: Create Cable (LineString)
 async function createCableAsset(startLatLng, endLatLng) {
-  const newAsset = {
-    id: Date.now(),
-    type: "Feature",
-    properties: {
-      name: "New 11kV Cable",
-      status: "As-Built",
-      voltage: "11kV",
-      created_at: new Date().toISOString(),
-    },
-    geometry: {
-      type: "LineString",
-      coordinates: [
-        [startLatLng.lng, startLatLng.lat],
-        [endLatLng.lng, endLatLng.lat],
-      ],
-    },
-    pending_sync: 1,
+  // Store geometry and type, then open form modal
+  pendingAssetGeometry = {
+    type: "LineString",
+    coordinates: [
+      [startLatLng.lng, startLatLng.lat],
+      [endLatLng.lng, endLatLng.lat],
+    ],
   };
-  await saveAndRender(newAsset);
+  pendingAssetType = "Cable";
+
+  openAssetModal("Cable");
 }
 
 // HELPER: Save to DB and Render
@@ -235,15 +227,22 @@ function openAssetModal(assetType) {
   // Show/hide correct form fields based on asset type
   const poleFields = document.getElementById("pole-form-fields");
   const transformerFields = document.getElementById("transformer-form-fields");
+  const cableFields = document.getElementById("cable-form-fields");
+
+  // Hide all form fields first
+  poleFields.classList.remove("active");
+  transformerFields.classList.remove("active");
+  cableFields.classList.remove("active");
 
   if (assetType === "Transformer") {
-    poleFields.classList.remove("active");
     transformerFields.classList.add("active");
     // Reset GMT-only fields visibility
     document.getElementById("gmt-only-fields").classList.remove("active");
+  } else if (assetType === "Cable") {
+    cableFields.classList.add("active");
   } else {
+    // Default to Pole
     poleFields.classList.add("active");
-    transformerFields.classList.remove("active");
   }
 
   // Reset cursor (was crosshair from tool activation)
@@ -425,6 +424,41 @@ async function saveAssetForm() {
       // Consequence of Failure
       bunding: form["tx-bunding"].value,
       watercourseProximity: form["tx-watercourse"].value,
+
+      // Photo
+      photo: pendingPhotoBase64,
+    };
+  } else if (pendingAssetType === "Cable") {
+    // CABLE FORM DATA
+    properties = {
+      name: `New ${pendingAssetType}`,
+      assetType: pendingAssetType,
+      status: "As-Built",
+      created_at: new Date().toISOString(),
+
+      // Core Specification
+      voltageLevel: form["cable-voltage"].value,
+      cableType: form["cable-type"].value,
+      conductorMaterial: form["cable-conductor"].value,
+      crossSectionalArea: form["cable-csa"].value,
+      cores: form["cable-cores"].value,
+      installationYear: parseInt(form["cable-year"].value) || null,
+
+      // Loading & Environment
+      dutyFactor: form["cable-duty"].value,
+      situation: form["cable-situation"].value,
+      topography: form["cable-topography"].value,
+
+      // Condition Assessment (Traffic Lights)
+      sheathCondition: getTrafficLightValue("cable-sheath"),
+      jointCondition: getTrafficLightValue("cable-joints"),
+      jointsCount: parseInt(form["cable-joints-count"].value) || 0,
+      historicalFaults: parseInt(form["cable-faults"].value) || 0,
+      knownIssues: {
+        thirdPartyDamageRisk: form["cable-thirdParty"]?.checked || false,
+        partialDischarge: form["cable-partialDischarge"]?.checked || false,
+        thermalIssues: form["cable-thermal"]?.checked || false,
+      },
 
       // Photo
       photo: pendingPhotoBase64,
@@ -667,18 +701,95 @@ function renderSingleRedLine(f) {
     opacity: 0.8,
   });
 
-  // Popup with delete button for As-Built cables
+  // Build detailed popup content for cables
   const syncStatus = f.pending_sync === 1 ? "(Unsynced)" : "Synced";
-  const popupContent = `
-        <b>${f.properties.name}</b><br>
-        ${syncStatus}<br>
-        <button onclick="deleteAsset(${f.id})" style="margin-top:8px; padding:4px 8px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+  const p = f.properties;
+
+  // Helper to format traffic light values with color
+  const formatCondition = (value) => {
+    const colors = {
+      None: "#27ae60",
+      Minor: "#f39c12",
+      Significant: "#e67e22",
+      Critical: "#e74c3c",
+    };
+    const color = colors[value] || "#999";
+    return `<span style="color:${color}; font-weight:bold;">${value || "N/A"}</span>`;
+  };
+
+  let popupContent = `
+    <div style="min-width:200px;">
+      <b style="font-size:14px;">${p.name || "Cable"}</b>
+      <span style="float:right; font-size:11px; color:#666;">${syncStatus}</span>
+      <hr style="margin:8px 0; border:none; border-top:1px solid #ddd;">
+  `;
+
+  // Core Specification
+  if (p.voltageLevel || p.cableType || p.conductorMaterial) {
+    popupContent += `
+      <div style="margin-bottom:8px;">
+        <b style="font-size:11px; color:#666;">SPECIFICATION</b><br>
+        ${p.voltageLevel ? `<b>Voltage:</b> ${p.voltageLevel}<br>` : ""}
+        ${p.cableType ? `<b>Type:</b> ${p.cableType}<br>` : ""}
+        ${p.conductorMaterial ? `<b>Conductor:</b> ${p.conductorMaterial}<br>` : ""}
+        ${p.crossSectionalArea ? `<b>CSA:</b> ${p.crossSectionalArea} mm²<br>` : ""}
+        ${p.cores ? `<b>Cores:</b> ${p.cores}<br>` : ""}
+        ${p.installationYear ? `<b>Installed:</b> ${p.installationYear}<br>` : ""}
+      </div>
     `;
+  }
+
+  // Loading & Environment
+  if (p.dutyFactor || p.situation || p.topography) {
+    popupContent += `
+      <div style="margin-bottom:8px;">
+        <b style="font-size:11px; color:#666;">ENVIRONMENT</b><br>
+        ${p.dutyFactor ? `<b>Duty Factor:</b> ${p.dutyFactor}<br>` : ""}
+        ${p.situation ? `<b>Situation:</b> ${p.situation}<br>` : ""}
+        ${p.topography ? `<b>Topography:</b> ${p.topography}<br>` : ""}
+      </div>
+    `;
+  }
+
+  // Condition Assessment
+  if (p.sheathCondition || p.jointCondition) {
+    popupContent += `
+      <div style="margin-bottom:8px;">
+        <b style="font-size:11px; color:#666;">CONDITION</b><br>
+        ${p.sheathCondition ? `<b>Sheath:</b> ${formatCondition(p.sheathCondition)}<br>` : ""}
+        ${p.jointCondition ? `<b>Joints:</b> ${formatCondition(p.jointCondition)}<br>` : ""}
+        ${p.jointsCount !== undefined ? `<b>Joint Count:</b> ${p.jointsCount}<br>` : ""}
+        ${p.historicalFaults !== undefined ? `<b>Historical Faults:</b> ${p.historicalFaults}<br>` : ""}
+      </div>
+    `;
+  }
+
+  // Known Issues
+  if (p.knownIssues) {
+    const issues = [];
+    if (p.knownIssues.thirdPartyDamageRisk) issues.push("Third Party Risk");
+    if (p.knownIssues.partialDischarge) issues.push("Partial Discharge");
+    if (p.knownIssues.thermalIssues) issues.push("Thermal Issues");
+    if (issues.length > 0) {
+      popupContent += `
+        <div style="margin-bottom:8px;">
+          <b style="font-size:11px; color:#666;">ISSUES</b><br>
+          <span style="color:#e74c3c;">${issues.join(", ")}</span>
+        </div>
+      `;
+    }
+  }
+
+  // Delete button
+  popupContent += `
+      <button onclick="deleteAsset(${f.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
+    </div>
+  `;
 
   if (f.pending_sync === 1) {
     polyline.setStyle({ dashArray: "10, 10", opacity: 0.5 });
   }
-  polyline.bindPopup(popupContent);
+  polyline.bindPopup(popupContent, { maxWidth: 300 });
 
   polyline.addTo(map);
 }

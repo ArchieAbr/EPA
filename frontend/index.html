@@ -584,6 +584,241 @@
             </div>
             <!-- END TRANSFORMER FORM FIELDS -->
 
+            <!-- CABLE FORM FIELDS -->
+            <div id="cable-form-fields" class="form-fields-section">
+              <!-- Core Specification -->
+              <div class="form-section">
+                <div class="form-section-title">Core Specification</div>
+                <div class="form-group">
+                  <label for="cable-voltage">Voltage Level</label>
+                  <select id="cable-voltage" name="cable-voltage">
+                    <option value="">-- Select --</option>
+                    <option value="LV">LV (Low Voltage)</option>
+                    <option value="HV">HV (High Voltage)</option>
+                    <option value="20kV">20kV</option>
+                    <option value="33kV">33kV</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cable-type">Cable Type</label>
+                  <select id="cable-type" name="cable-type">
+                    <option value="">-- Select --</option>
+                    <option value="PILC">
+                      PILC (Paper Insulated Lead Covered)
+                    </option>
+                    <option value="XLPE">
+                      XLPE (Cross-Linked Polyethylene)
+                    </option>
+                    <option value="CAS">CAS (Consac Aluminium Sheathed)</option>
+                    <option value="Consac">Consac</option>
+                    <option value="Waveform">Waveform</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cable-conductor">Conductor Material</label>
+                  <select id="cable-conductor" name="cable-conductor">
+                    <option value="">-- Select --</option>
+                    <option value="Copper">Copper</option>
+                    <option value="Aluminium">Aluminium</option>
+                    <option value="ACSR">
+                      ACSR (Aluminium Conductor Steel Reinforced)
+                    </option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cable-csa">Cross-Sectional Area (mm²)</label>
+                  <select id="cable-csa" name="cable-csa">
+                    <option value="">-- Select --</option>
+                    <option value="25">25 mm²</option>
+                    <option value="35">35 mm²</option>
+                    <option value="50">50 mm²</option>
+                    <option value="70">70 mm²</option>
+                    <option value="95">95 mm²</option>
+                    <option value="120">120 mm²</option>
+                    <option value="150">150 mm²</option>
+                    <option value="185">185 mm²</option>
+                    <option value="240">240 mm²</option>
+                    <option value="300">300 mm²</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cable-cores">Number of Cores</label>
+                  <select id="cable-cores" name="cable-cores">
+                    <option value="">-- Select --</option>
+                    <option value="1">1 Core</option>
+                    <option value="3">3 Core</option>
+                    <option value="4">4 Core</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cable-year">Installation Year</label>
+                  <input
+                    type="number"
+                    id="cable-year"
+                    name="cable-year"
+                    min="1900"
+                    max="2099"
+                    placeholder="e.g. 1985"
+                  />
+                </div>
+              </div>
+
+              <!-- Loading & Environment -->
+              <div class="form-section">
+                <div class="form-section-title">Loading & Environment</div>
+                <div class="form-group">
+                  <label for="cable-duty">Duty Factor (%)</label>
+                  <select id="cable-duty" name="cable-duty">
+                    <option value="">-- Select --</option>
+                    <option value="<50">&lt;50% (Lightly Loaded)</option>
+                    <option value="50-75">50-75% (Normal)</option>
+                    <option value="75-100">75-100% (Heavily Loaded)</option>
+                    <option value=">100">&gt;100% (Overloaded)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cable-situation">Situation</label>
+                  <select id="cable-situation" name="cable-situation">
+                    <option value="">-- Select --</option>
+                    <option value="Direct Buried">Direct Buried</option>
+                    <option value="Ducted">Ducted</option>
+                    <option value="Trough">Trough</option>
+                    <option value="Submarine">Submarine</option>
+                    <option value="Overhead">Overhead (ABC)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cable-topography">Topography</label>
+                  <select id="cable-topography" name="cable-topography">
+                    <option value="">-- Select --</option>
+                    <option value="Urban">Urban</option>
+                    <option value="Rural">Rural</option>
+                    <option value="Coastal">Coastal</option>
+                    <option value="Industrial">Industrial</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Condition Assessment -->
+              <div class="form-section">
+                <div class="form-section-title">Condition Assessment</div>
+                <div class="form-group">
+                  <label>Sheath Condition</label>
+                  <div class="traffic-light" data-field="cable-sheath">
+                    <button
+                      type="button"
+                      class="traffic-light-btn green"
+                      data-value="None"
+                    >
+                      None
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn yellow"
+                      data-value="Minor"
+                    >
+                      Minor
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn orange"
+                      data-value="Significant"
+                    >
+                      Signif.
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn red"
+                      data-value="Critical"
+                    >
+                      Critical
+                    </button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Joint Condition</label>
+                  <div class="traffic-light" data-field="cable-joints">
+                    <button
+                      type="button"
+                      class="traffic-light-btn green"
+                      data-value="None"
+                    >
+                      None
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn yellow"
+                      data-value="Minor"
+                    >
+                      Minor
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn orange"
+                      data-value="Significant"
+                    >
+                      Signif.
+                    </button>
+                    <button
+                      type="button"
+                      class="traffic-light-btn red"
+                      data-value="Critical"
+                    >
+                      Critical
+                    </button>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="cable-joints-count">Number of Joints</label>
+                  <input
+                    type="number"
+                    id="cable-joints-count"
+                    name="cable-joints-count"
+                    min="0"
+                    placeholder="e.g. 2"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="cable-faults">Historical Fault Count</label>
+                  <input
+                    type="number"
+                    id="cable-faults"
+                    name="cable-faults"
+                    min="0"
+                    placeholder="e.g. 0"
+                  />
+                </div>
+                <div class="form-group checkbox-group">
+                  <label class="checkbox-group-title">Known Issues</label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="cable-thirdParty"
+                      id="cable-thirdParty"
+                    />
+                    Third Party Damage Risk
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="cable-partialDischarge"
+                      id="cable-partialDischarge"
+                    />
+                    Partial Discharge Detected
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      name="cable-thermal"
+                      id="cable-thermal"
+                    />
+                    Thermal Issues
+                  </label>
+                </div>
+              </div>
+            </div>
+            <!-- END CABLE FORM FIELDS -->
+
             <!-- PHOTO ATTACHMENT (Shared) -->
             <div class="form-section">
               <div class="form-section-title">Photo Attachment</div>
