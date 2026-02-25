@@ -3,13 +3,537 @@
   "features": [
     {
       "type": "Feature",
-      "properties": { "id": 1, "name": "Substation Alpha", "status": "Operational" },
-      "geometry": { "type": "Point", "coordinates": [-1.5491, 53.8008] }
+      "properties": {
+        "id": 1,
+        "name": "Substation Alpha",
+        "status": "Operational"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5491,
+          53.8008
+        ]
+      }
     },
     {
       "type": "Feature",
-      "properties": { "id": 2, "name": "Cable Junction B", "status": "Needs Repair" },
-      "geometry": { "type": "Point", "coordinates": [-1.5550, 53.8050] }
+      "properties": {
+        "id": 2,
+        "name": "Cable Junction B",
+        "status": "Needs Repair"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.555,
+          53.805
+        ]
+      }
+    },
+    {
+      "id": 1772041333076,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T17:42:13.075Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5605950355529787,
+          53.810341250165294
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042178409,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T17:56:18.409Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5597152709960938,
+          53.80993897899557
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042189454,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T17:56:29.454Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5597581863403323,
+          53.80993897899557
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042270176,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T17:57:50.176Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5597581863403323,
+          53.81031274288663
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042294762,
+      "type": "Feature",
+      "properties": {
+        "name": "New Transformer",
+        "assetType": "Transformer",
+        "status": "As-Built",
+        "created_at": "2026-02-25T17:58:14.762Z",
+        "mounting": "Pole Mounted",
+        "rating": "25",
+        "manufacturer": "",
+        "serialNo": "",
+        "yearOfManufacture": null,
+        "coolingMedium": "Mineral Oil",
+        "breatherType": "Free Breathing",
+        "tankGrade": 1,
+        "tankIssues": {
+          "surfaceRust": false,
+          "pitting": false,
+          "weepingOil": false,
+          "activeLeak": false
+        },
+        "finsGrade": 1,
+        "bushings": "Good",
+        "silicaGel": "Blue/Orange (Good)",
+        "oilLevel": "Normal",
+        "oilAcidity": null,
+        "moistureContent": null,
+        "breakdownStrength": null,
+        "bunding": "None",
+        "watercourseProximity": ">50m",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.559683084487915,
+          53.80992630897473
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042373257,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T17:59:33.257Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.559591889381409,
+          53.81005934400225
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042393089,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T17:59:53.088Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.56005859375,
+          53.8097489282813
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042512934,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T18:01:52.934Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5595221519470217,
+          53.80997065403081
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042554801,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T18:02:34.801Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5595811605453493,
+          53.80990413642912
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042597023,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T18:03:17.023Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.559865474700928,
+          53.80976159835573
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042704272,
+      "type": "Feature",
+      "properties": {
+        "name": "New Transformer",
+        "assetType": "Transformer",
+        "status": "As-Built",
+        "created_at": "2026-02-25T18:05:04.272Z",
+        "mounting": "Pole Mounted",
+        "rating": "25",
+        "manufacturer": "",
+        "serialNo": "",
+        "yearOfManufacture": null,
+        "coolingMedium": "Mineral Oil",
+        "breatherType": "Free Breathing",
+        "tankGrade": 1,
+        "tankIssues": {
+          "surfaceRust": false,
+          "pitting": false,
+          "weepingOil": false,
+          "activeLeak": false
+        },
+        "finsGrade": 1,
+        "bushings": "Good",
+        "silicaGel": "Blue/Orange (Good)",
+        "oilLevel": "Normal",
+        "oilAcidity": null,
+        "moistureContent": null,
+        "breakdownStrength": null,
+        "bunding": "None",
+        "watercourseProximity": ">50m",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5594685077667239,
+          53.8097172530785
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042931465,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T18:08:51.464Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.560466289520264,
+          53.81023672338218
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772042998757,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T18:09:58.756Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.559886932373047,
+          53.80990730393635
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772043045989,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T18:10:45.989Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5603697299957275,
+          53.81031907783912
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772043072546,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T18:11:12.546Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5600478649139404,
+          53.81019237860754
+        ]
+      },
+      "pending_sync": 1
+    },
+    {
+      "id": 1772043087349,
+      "type": "Feature",
+      "properties": {
+        "name": "New Pole",
+        "assetType": "Pole",
+        "status": "As-Built",
+        "created_at": "2026-02-25T18:11:27.349Z",
+        "material": "Wood",
+        "treatment": "Creosote",
+        "stoutness": "Light",
+        "height": "9m",
+        "transformers": 0,
+        "topRot": "None",
+        "externalRot": "None",
+        "birdDamage": "None",
+        "verticality": "Plumb",
+        "steelCorrosion": "None",
+        "soundTest": "Solid",
+        "photo": null
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -1.5600693225860596,
+          53.81003400402955
+        ]
+      },
+      "pending_sync": 1
     }
   ]
 }
