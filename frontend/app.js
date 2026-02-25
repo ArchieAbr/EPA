@@ -113,6 +113,7 @@ function createCableAsset(startLatLng, endLatLng) {
 
 // FORM SUBMISSION
 async function saveAssetForm(evt) {
+  // Keep the UI responsive by adding to the in-memory store only
   if (evt && typeof evt.preventDefault === "function") {
     evt.preventDefault();
   }
@@ -133,16 +134,11 @@ async function saveAssetForm(evt) {
     pending_sync: 1,
   };
 
-  await DB.addAsset(newAsset);
+  await DB.addAsset(newAsset); // in-memory
   await MapController.loadAsBuilt();
   UI.setMapCursor("");
-
-  if (AppState.isServerReachable) {
-    syncOfflineChanges();
-  }
-
   UI.closeAssetModal();
-  console.log("Asset saved with form data:", newAsset.properties);
+  console.log("Asset saved (local only):", newAsset.properties);
   return false;
 }
 

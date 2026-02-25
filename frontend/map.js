@@ -109,8 +109,10 @@ const MapController = (() => {
             `<b>DESIGN: ${assetType}</b><br>Length: ${lengthStr}<br>Status: ${feature.properties.status}`,
           );
 
-          const midIdx = Math.floor(coords.length / 2);
-          const midPoint = coords[midIdx];
+          // Place length label at the geometric midpoint between start and end
+          const start = coords[0];
+          const end = coords[coords.length - 1];
+          const midPoint = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
           const label = L.marker([midPoint[1], midPoint[0]], {
             icon: L.divIcon({
               className: "cable-length-label",
@@ -135,16 +137,38 @@ const MapController = (() => {
 
   const renderSingleRedMarker = (feature) => {
     if (!map) return;
-    const marker = L.circleMarker(
-      [feature.geometry.coordinates[1], feature.geometry.coordinates[0]],
-      {
-        radius: 7,
-        fillColor: "#e74c3c",
-        color: "#c0392b",
-        weight: 2,
-        fillOpacity: 1,
-      },
-    );
+
+    const isTransformer =
+      (
+        feature.properties.assetType ||
+        feature.properties.type ||
+        ""
+      ).toLowerCase() === "transformer";
+
+    const pending = feature.pending_sync === 1;
+
+    const marker = isTransformer
+      ? L.marker(
+          [feature.geometry.coordinates[1], feature.geometry.coordinates[0]],
+          {
+            icon: L.divIcon({
+              className: "asbuilt-transformer",
+              iconSize: [16, 16],
+              iconAnchor: [8, 8],
+              html: `<div style="width:16px;height:16px;background:#e74c3c;border:2px solid #c0392b;border-radius:2px;${pending ? "opacity:0.6;border-style:dashed;" : ""}"></div>`,
+            }),
+          },
+        )
+      : L.circleMarker(
+          [feature.geometry.coordinates[1], feature.geometry.coordinates[0]],
+          {
+            radius: 7,
+            fillColor: "#e74c3c",
+            color: "#c0392b",
+            weight: 2,
+            fillOpacity: 1,
+          },
+        );
 
     if (featureClickHandler) {
       marker.on("click", (e) => {
@@ -266,7 +290,7 @@ const MapController = (() => {
       `;
     }
 
-    if (feature.pending_sync === 1) {
+    if (feature.pending_sync === 1 && typeof marker.setStyle === "function") {
       marker.setStyle({ fillOpacity: 0.5, dashArray: "2, 2" });
     }
     marker.bindPopup(popupContent, { maxWidth: 300 });
