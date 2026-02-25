@@ -159,3 +159,5 @@ frontend/
 - `openAssetModal(assetType)` now injects HTML from `forms.js` and re-initialises event handlers
 - `saveAssetForm()` collects form data based on `pendingAssetType` (Pole/Transformer/Cable)
 - Cable workflow updated: `createCableAsset()` now opens modal instead of saving directly
+
+

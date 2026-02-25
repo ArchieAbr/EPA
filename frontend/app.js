@@ -1,457 +1,158 @@
-// CONFIGURATION
-const API_BASE = "http://127.0.0.1:5000";
+// Frontend orchestrator
 
-// WORK ORDER STATE
-let currentWorkOrder = null;
-let designLayer = null; // Layer group for black-line design assets
+window.activateTool = activateTool;
+window.openWorkOrderSelector = openWorkOrderSelector;
+window.saveAssetForm = saveAssetForm;
+window.deleteAsset = deleteAsset;
+// BUG FIX: Expose modal closer used by inline HTML handlers
+window.closeWorkOrderSelector = UI.hideWorkOrderSelector;
 
-// WORK ORDER API FUNCTIONS
-async function fetchWorkOrders() {
-  try {
-    const response = await fetch(`${API_BASE}/api/workorders`);
-    if (!response.ok) throw new Error("Failed to fetch work orders");
-    return await response.json();
-  } catch (error) {
-    console.error("Error fetching work orders:", error);
-    return [];
+// Defensive guard: block any form submit from triggering navigation (captures bubbled submits)
+document.addEventListener(
+  "submit",
+  (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.debug("Submit blocked", e.target?.id || e.target);
+  },
+  true,
+);
+
+const map = MapController.initMap();
+MapController.bindFeatureClick(handleFeatureClick);
+
+// BUG FIX: Guard against default form submission (avoid page reload on save)
+const assetFormEl = document.getElementById("asset-form");
+if (assetFormEl) {
+  assetFormEl.addEventListener("submit", (e) => {
+    e.preventDefault();
+    saveAssetForm(e);
+    return false;
+  });
+}
+
+map.on("click", (e) => {
+  if (AppState.currentTool && AppState.currentTool !== "Cable") {
+    createPointAsset(e.latlng, AppState.currentTool);
   }
+});
+
+// WORK ORDER FLOW
+async function openWorkOrderSelector() {
+  UI.showWorkOrderSelector();
+  UI.setWorkOrderListLoading();
+  const workOrders = await API.fetchWorkOrders();
+  UI.renderWorkOrderList(
+    workOrders,
+    AppState.currentWorkOrder?.id,
+    loadWorkOrder,
+  );
 }
 
 async function loadWorkOrder(woId) {
   try {
-    const response = await fetch(`${API_BASE}/api/workorders/${woId}`);
-    if (!response.ok) throw new Error("Failed to load work order");
-    currentWorkOrder = await response.json();
-
-    // Update map view and bounds
-    const bounds = currentWorkOrder.bounds;
-    map.setView([bounds.center[0], bounds.center[1]], bounds.zoom);
-
-    // Lock map to work order bounds
-    // maxBounds format: [[sw_lat, sw_lng], [ne_lat, ne_lng]]
-    if (bounds.maxBounds && bounds.maxBounds.length === 2) {
-      const maxBounds = L.latLngBounds(
-        [bounds.maxBounds[0][0], bounds.maxBounds[0][1]], // SW corner
-        [bounds.maxBounds[1][0], bounds.maxBounds[1][1]], // NE corner
-      );
-      map.setMaxBounds(maxBounds);
-      map.setMinZoom(bounds.minZoom || bounds.zoom - 2);
-      // Make bounds "solid" - prevents any dragging outside the bounds
-      map.options.maxBoundsViscosity = 1.0;
-    }
-
-    // Render design assets and update UI
-    renderJobPackLayers();
-    updateWorkOrderUI();
-    closeWorkOrderSelector();
-
-    // Show tools panel
-    document.getElementById("tools-panel").style.display = "block";
-
-    console.log("Loaded work order:", currentWorkOrder.id);
+    const workOrder = await API.fetchWorkOrder(woId);
+    AppState.currentWorkOrder = workOrder;
+    MapController.setBounds(workOrder.bounds);
+    MapController.renderJobPackLayers(workOrder);
+    UI.updateWorkOrderUI(workOrder);
+    UI.hideWorkOrderSelector();
+    UI.showToolsPanel();
+    console.log("Loaded work order:", workOrder.id);
   } catch (error) {
     console.error("Error loading work order:", error);
     alert("Failed to load work order. Please try again.");
   }
 }
 
-function updateWorkOrderUI() {
-  const detailsContainer = document.getElementById("wo-details");
-  if (!currentWorkOrder || !detailsContainer) return;
-
-  detailsContainer.innerHTML = `
-    <div class="wo-active-header">
-      <span class="wo-active-id">${currentWorkOrder.id}</span>
-      <button class="wo-change-btn" onclick="openWorkOrderSelector()">Change</button>
-    </div>
-    <h3>${currentWorkOrder.name}</h3>
-    <p>${currentWorkOrder.description}</p>
-    <div class="wo-meta">
-      <span class="wo-status-badge ${currentWorkOrder.status}">${currentWorkOrder.status}</span>
-      ${currentWorkOrder.priority ? `<span class="wo-priority-badge ${currentWorkOrder.priority}">${currentWorkOrder.priority}</span>` : ""}
-    </div>
-    <div class="wo-stats">
-      <div class="wo-stat">
-        <span class="wo-stat-value">${currentWorkOrder.design_assets?.length || 0}</span>
-        <span class="wo-stat-label">Design Assets</span>
-      </div>
-    </div>
-  `;
-}
-
-async function openWorkOrderSelector() {
-  const modal = document.getElementById("wo-selector-modal");
-  const listContainer = document.getElementById("wo-list-container");
-
-  if (!modal || !listContainer) return;
-
-  listContainer.innerHTML = "<p>Loading work orders...</p>";
-  modal.style.display = "flex";
-
-  const workOrders = await fetchWorkOrders();
-
-  if (workOrders.length === 0) {
-    listContainer.innerHTML = "<p>No work orders available.</p>";
-    return;
-  }
-
-  listContainer.innerHTML = workOrders
-    .map(
-      (wo) => `
-      <div class="wo-item ${currentWorkOrder?.id === wo.id ? "wo-item-active" : ""}" onclick="loadWorkOrder('${wo.id}')">
-        <div class="wo-item-header">
-          <span class="wo-item-id">${wo.id}</span>
-          <span class="wo-item-priority ${wo.priority || "normal"}">${wo.priority || "normal"}</span>
-        </div>
-        <div class="wo-item-name">${wo.name}</div>
-        <div class="wo-item-footer">
-          <span class="wo-item-status ${wo.status}">${wo.status}</span>
-        </div>
-      </div>
-    `,
-    )
-    .join("");
-}
-
-function closeWorkOrderSelector() {
-  const modal = document.getElementById("wo-selector-modal");
-  if (modal) modal.style.display = "none";
-}
-
-// UTILITY: Calculate line length in meters using Haversine formula
-function calculateLineLength(coordinates) {
-  let totalLength = 0;
-  for (let i = 0; i < coordinates.length - 1; i++) {
-    const [lon1, lat1] = coordinates[i];
-    const [lon2, lat2] = coordinates[i + 1];
-    totalLength += haversineDistance(lat1, lon1, lat2, lon2);
-  }
-  return totalLength;
-}
-
-function haversineDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371000; // Earth's radius in meters
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-// 1. Setup IndexedDB
-const db = new Dexie("AssetDB");
-db.version(1).stores({
-  assets: "id, properties, geometry, pending_sync",
-});
-
-// 2. Setup Map (default center: Leeds)
-const DEFAULT_CENTER = [53.81, -1.56];
-const DEFAULT_ZOOM = 14;
-const map = L.map("map").setView(DEFAULT_CENTER, DEFAULT_ZOOM);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "© OpenStreetMap",
-}).addTo(map);
-
-// 3. TOOL & DRAWING LOGIC - Redlining
-let currentTool = null;
-let cableStartNode = null; // Tracks the first pole clicked for a cable
-let tempLine = null; // The visual "rubber band" line - not working
-
-// Called by the HTML buttons
-window.activateTool = function (toolName) {
-  currentTool = toolName;
-  cableStartNode = null; // Reset cable state
-
-  // Visual Feedback
-  document.getElementById("map").style.cursor = "crosshair";
-
+// TOOLING AND ASSET CREATION
+function activateTool(toolName) {
+  AppState.currentTool = toolName;
+  AppState.cableStartNode = null;
+  UI.setMapCursor("crosshair");
   if (toolName === "Cable") {
     alert(
       "Cable Tool Active:\n1. Click the first Pole.\n2. Click the second Pole to connect them.",
     );
-  } else {
-    console.log(`Tool Active: ${toolName}`);
   }
-};
-
-// Map Click Listener (Generic clicks on the background)
-map.on("click", async function (e) {
-  // If drawing a Point (Pole/Transformer), simple drop
-  if (currentTool && currentTool !== "Cable") {
-    createPointAsset(e.latlng, currentTool);
-  }
-});
-
-// FEATURE CLICK LISTENER (For Snapping / Cables)
-function onFeatureClick(e, featureProperties) {
-  // Only care if we are in "Cable" mode - change this
-  if (currentTool !== "Cable") return;
-
-  const latlng = e.latlng;
-
-  if (!cableStartNode) {
-    // STEP 1: Select Start Node
-    cableStartNode = latlng;
-
-    // Visual feedback: Draw a temporary dashed line from start to mouse
-    L.popup()
-      .setLatLng(latlng)
-      .setContent("<b>Start Point Selected</b><br>Click next pole to connect.")
-      .openOn(map);
-  } else {
-    // STEP 2: Select End Node & Create Cable
-    createCableAsset(cableStartNode, latlng);
-
-    // Reset
-    cableStartNode = null;
-    map.closePopup();
-  }
-
-  // Stop the map from receiving this click too
-  L.DomEvent.stopPropagation(e);
 }
 
-// HELPER: Create Point (Pole/Transformer)
-let pendingAssetGeometry = null; // Stores geometry while form is open
-let pendingAssetType = null; // Stores asset type (Pole/Transformer)
+function handleFeatureClick(e) {
+  if (AppState.currentTool !== "Cable") return;
+  const latlng = e.latlng;
+  if (!AppState.cableStartNode) {
+    AppState.cableStartNode = latlng;
+    UI.showStartPointPopup(latlng);
+  } else {
+    createCableAsset(AppState.cableStartNode, latlng);
+    AppState.cableStartNode = null;
+    UI.clearPopup();
+  }
+}
 
-async function createPointAsset(latlng, type) {
-  // Store geometry and type, then open form modal
-  pendingAssetGeometry = {
+function createPointAsset(latlng, type) {
+  AppState.pendingAssetGeometry = {
     type: "Point",
     coordinates: [latlng.lng, latlng.lat],
   };
-  pendingAssetType = type;
-
-  openAssetModal(type);
+  AppState.pendingAssetType = type;
+  UI.openAssetModal(type);
 }
 
-// HELPER: Create Cable (LineString)
-async function createCableAsset(startLatLng, endLatLng) {
-  // Store geometry and type, then open form modal
-  pendingAssetGeometry = {
+function createCableAsset(startLatLng, endLatLng) {
+  AppState.pendingAssetGeometry = {
     type: "LineString",
     coordinates: [
       [startLatLng.lng, startLatLng.lat],
       [endLatLng.lng, endLatLng.lat],
     ],
   };
-  pendingAssetType = "Cable";
-
-  openAssetModal("Cable");
-}
-
-// HELPER: Save to DB and Render
-async function saveAndRender(asset) {
-  await db.assets.add(asset);
-
-  if (asset.geometry.type === "Point") {
-    renderSingleRedMarker(asset);
-  } else {
-    renderSingleRedLine(asset); // New function for lines
-  }
-
-  // Reset Tool cursor
-  document.getElementById("map").style.cursor = "";
-
-  if (isServerReachable) syncOfflineChanges();
-}
-
-// HELPER: Delete Asset from DB and Re-render
-async function deleteAsset(assetId) {
-  await db.assets.delete(assetId);
-  loadAssets(); // Re-render to remove from map
-  map.closePopup();
-  console.log(`Asset ${assetId} deleted.`);
-}
-
-// Expose to global scope for popup button onclick
-window.deleteAsset = deleteAsset;
-
-// ============================================================
-// 3b. DYNAMIC DATA FORM LOGIC
-// ============================================================
-
-// MODAL CONTROL
-function openAssetModal(assetType) {
-  document.getElementById("modal-title").textContent = `New ${assetType}`;
-  document.getElementById("asset-modal").classList.add("active");
-
-  // Inject the correct form template
-  const container = document.getElementById("form-fields-container");
-  container.innerHTML = getFormTemplate(assetType);
-
-  // Initialize interactive elements (must be done after template injection)
-  initTrafficLights();
-  initGradeSelectors();
-  initPhotoCapture();
-
-  // Reset to defaults
-  resetTrafficLights();
-  resetGradeSelectors();
-  clearPhotoPreview();
-
-  // Handle transformer-specific GMT fields
-  if (assetType === "Transformer") {
-    const gmtFields = document.getElementById("gmt-only-fields");
-    if (gmtFields) gmtFields.classList.remove("active");
-  }
-
-  // Reset cursor (was crosshair from tool activation)
-  document.getElementById("map").style.cursor = "";
-}
-
-function closeAssetModal() {
-  document.getElementById("asset-modal").classList.remove("active");
-  pendingAssetGeometry = null;
-  pendingAssetType = null;
-}
-
-// Expose to global scope for HTML onclick
-window.closeAssetModal = closeAssetModal;
-
-// TRAFFIC LIGHT SELECTION
-function initTrafficLights() {
-  document.querySelectorAll(".traffic-light").forEach((container) => {
-    container.querySelectorAll(".traffic-light-btn").forEach((btn) => {
-      btn.addEventListener("click", function () {
-        // Deselect siblings
-        container
-          .querySelectorAll(".traffic-light-btn")
-          .forEach((b) => b.classList.remove("selected"));
-        // Select this one
-        this.classList.add("selected");
-      });
-    });
-  });
-}
-
-function resetTrafficLights() {
-  document.querySelectorAll(".traffic-light-btn").forEach((btn) => {
-    btn.classList.remove("selected");
-  });
-  // Default to "None" (green) for all traffic lights
-  document.querySelectorAll(".traffic-light").forEach((container) => {
-    const greenBtn = container.querySelector(".traffic-light-btn.green");
-    if (greenBtn) greenBtn.classList.add("selected");
-  });
-}
-
-function getTrafficLightValue(fieldName) {
-  const container = document.querySelector(
-    `.traffic-light[data-field="${fieldName}"]`,
-  );
-  const selected = container?.querySelector(".traffic-light-btn.selected");
-  return selected ? selected.dataset.value : "None";
-}
-
-// GRADE SELECTOR (1-5 for Transformers)
-function initGradeSelectors() {
-  document.querySelectorAll(".grade-selector").forEach((container) => {
-    container.querySelectorAll(".grade-btn").forEach((btn) => {
-      btn.addEventListener("click", function () {
-        // Deselect siblings
-        container
-          .querySelectorAll(".grade-btn")
-          .forEach((b) => b.classList.remove("selected"));
-        // Select this one
-        this.classList.add("selected");
-      });
-    });
-  });
-}
-
-function resetGradeSelectors() {
-  document.querySelectorAll(".grade-btn").forEach((btn) => {
-    btn.classList.remove("selected");
-  });
-  // Default to Grade 1 (best) for all grade selectors
-  document.querySelectorAll(".grade-selector").forEach((container) => {
-    const grade1Btn = container.querySelector(".grade-btn.grade-1");
-    if (grade1Btn) grade1Btn.classList.add("selected");
-  });
-}
-
-function getGradeValue(fieldName) {
-  const container = document.querySelector(
-    `.grade-selector[data-field="${fieldName}"]`,
-  );
-  const selected = container?.querySelector(".grade-btn.selected");
-  return selected ? parseInt(selected.dataset.value) : 1;
-}
-
-// GMT-ONLY FIELDS TOGGLE
-function toggleGMTFields() {
-  const mountingSelect = document.getElementById("tx-mounting");
-  const gmtFields = document.getElementById("gmt-only-fields");
-
-  if (mountingSelect.value === "Ground Mounted") {
-    gmtFields.classList.add("active");
-  } else {
-    gmtFields.classList.remove("active");
-  }
-}
-
-// Expose to global scope for HTML onchange
-window.toggleGMTFields = toggleGMTFields;
-
-// PHOTO CAPTURE & BASE64 CONVERSION
-let pendingPhotoBase64 = null;
-
-function initPhotoCapture() {
-  const photoInput = document.getElementById("photo");
-  const preview = document.getElementById("photo-preview");
-
-  photoInput.addEventListener("change", function (e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function (event) {
-      pendingPhotoBase64 = event.target.result; // Base64 string
-      preview.src = pendingPhotoBase64;
-      preview.classList.add("has-image");
-      document.querySelector(".photo-upload-text").textContent =
-        "✓ Photo captured";
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-function clearPhotoPreview() {
-  pendingPhotoBase64 = null;
-  const preview = document.getElementById("photo-preview");
-  preview.src = "";
-  preview.classList.remove("has-image");
-  document.querySelector(".photo-upload-text").textContent =
-    "📷 Tap to capture or select photo";
+  AppState.pendingAssetType = "Cable";
+  UI.openAssetModal("Cable");
 }
 
 // FORM SUBMISSION
-async function saveAssetForm() {
-  if (!pendingAssetGeometry || !pendingAssetType) {
+async function saveAssetForm(evt) {
+  if (evt && typeof evt.preventDefault === "function") {
+    evt.preventDefault();
+  }
+  if (!AppState.pendingAssetGeometry || !AppState.pendingAssetType) {
     console.error("No pending asset to save");
-    return;
+    return false;
   }
 
-  // Collect form data
   const form = document.getElementById("asset-form");
-  let properties = {};
+  const assetType = AppState.pendingAssetType;
+  const properties = buildProperties(assetType, form);
 
-  if (pendingAssetType === "Transformer") {
-    // TRANSFORMER FORM DATA
-    properties = {
-      name: `New ${pendingAssetType}`,
-      assetType: pendingAssetType,
+  const newAsset = {
+    id: Date.now(),
+    type: "Feature",
+    properties,
+    geometry: AppState.pendingAssetGeometry,
+    pending_sync: 1,
+  };
+
+  await DB.addAsset(newAsset);
+  await MapController.loadAsBuilt();
+  UI.setMapCursor("");
+
+  if (AppState.isServerReachable) {
+    syncOfflineChanges();
+  }
+
+  UI.closeAssetModal();
+  console.log("Asset saved with form data:", newAsset.properties);
+  return false;
+}
+
+function buildProperties(assetType, form) {
+  if (assetType === "Transformer") {
+    return {
+      name: `New ${assetType}`,
+      assetType,
       status: "As-Built",
       created_at: new Date().toISOString(),
-
-      // Core Specification
       mounting: form["tx-mounting"].value,
       rating: form["tx-rating"].value,
       manufacturer: form["tx-manufacturer"].value,
@@ -459,56 +160,43 @@ async function saveAssetForm() {
       yearOfManufacture: parseInt(form["tx-year"].value) || null,
       coolingMedium: form["tx-cooling"].value,
       breatherType: form["tx-breather"].value,
-
-      // Inspection / Condition
-      tankGrade: getGradeValue("tx-tankGrade"),
+      tankGrade: UI.getGradeValue("tx-tankGrade"),
       tankIssues: {
         surfaceRust: form["tx-surfaceRust"]?.checked || false,
         pitting: form["tx-pitting"]?.checked || false,
         weepingOil: form["tx-weepingOil"]?.checked || false,
         activeLeak: form["tx-activeLeak"]?.checked || false,
       },
-      finsGrade: getGradeValue("tx-finsGrade"),
+      finsGrade: UI.getGradeValue("tx-finsGrade"),
       bushings: form["tx-bushings"].value,
       silicaGel: form["tx-silicaGel"].value,
       oilLevel: form["tx-oilLevel"].value,
-
-      // Advanced Data (GMT Only)
       oilAcidity: parseFloat(form["tx-oilAcidity"]?.value) || null,
       moistureContent: parseInt(form["tx-moisture"]?.value) || null,
       breakdownStrength: parseInt(form["tx-breakdown"]?.value) || null,
-
-      // Consequence of Failure
       bunding: form["tx-bunding"].value,
       watercourseProximity: form["tx-watercourse"].value,
-
-      // Photo
-      photo: pendingPhotoBase64,
+      photo: AppState.pendingPhotoBase64,
     };
-  } else if (pendingAssetType === "Cable") {
-    // CABLE FORM DATA
-    properties = {
-      name: `New ${pendingAssetType}`,
-      assetType: pendingAssetType,
+  }
+
+  if (assetType === "Cable") {
+    return {
+      name: `New ${assetType}`,
+      assetType,
       status: "As-Built",
       created_at: new Date().toISOString(),
-
-      // Core Specification
       voltageLevel: form["cable-voltage"].value,
       cableType: form["cable-type"].value,
       conductorMaterial: form["cable-conductor"].value,
       crossSectionalArea: form["cable-csa"].value,
       cores: form["cable-cores"].value,
       installationYear: parseInt(form["cable-year"].value) || null,
-
-      // Loading & Environment
       dutyFactor: form["cable-duty"].value,
       situation: form["cable-situation"].value,
       topography: form["cable-topography"].value,
-
-      // Condition Assessment (Traffic Lights)
-      sheathCondition: getTrafficLightValue("cable-sheath"),
-      jointCondition: getTrafficLightValue("cable-joints"),
+      sheathCondition: UI.getTrafficLightValue("cable-sheath"),
+      jointCondition: UI.getTrafficLightValue("cable-joints"),
       jointsCount: parseInt(form["cable-joints-count"].value) || 0,
       historicalFaults: parseInt(form["cable-faults"].value) || 0,
       knownIssues: {
@@ -516,519 +204,92 @@ async function saveAssetForm() {
         partialDischarge: form["cable-partialDischarge"]?.checked || false,
         thermalIssues: form["cable-thermal"]?.checked || false,
       },
-
-      // Photo
-      photo: pendingPhotoBase64,
-    };
-  } else {
-    // POLE FORM DATA (existing logic)
-    properties = {
-      name: `New ${pendingAssetType}`,
-      assetType: pendingAssetType,
-      status: "As-Built",
-      created_at: new Date().toISOString(),
-
-      // Core Specification
-      material: form.material.value,
-      treatment: form.treatment.value,
-      stoutness: form.stoutness.value,
-      height: form.height.value,
-      transformers: parseInt(form.transformers.value) || 0,
-
-      // Inspection / Condition (Traffic Lights)
-      topRot: getTrafficLightValue("topRot"),
-      externalRot: getTrafficLightValue("externalRot"),
-      birdDamage: getTrafficLightValue("birdDamage"),
-      verticality: form.verticality.value,
-      steelCorrosion: getTrafficLightValue("steelCorrosion"),
-      soundTest: form.soundTest.value,
-
-      // Photo
-      photo: pendingPhotoBase64,
+      photo: AppState.pendingPhotoBase64,
     };
   }
 
-  const newAsset = {
-    id: Date.now(),
-    type: "Feature",
-    properties: properties,
-    geometry: pendingAssetGeometry,
-    pending_sync: 1,
+  return {
+    name: `New ${assetType}`,
+    assetType,
+    status: "As-Built",
+    created_at: new Date().toISOString(),
+    material: form.material.value,
+    treatment: form.treatment.value,
+    stoutness: form.stoutness.value,
+    height: form.height.value,
+    transformers: parseInt(form.transformers.value) || 0,
+    topRot: UI.getTrafficLightValue("topRot"),
+    externalRot: UI.getTrafficLightValue("externalRot"),
+    birdDamage: UI.getTrafficLightValue("birdDamage"),
+    verticality: form.verticality.value,
+    steelCorrosion: UI.getTrafficLightValue("steelCorrosion"),
+    soundTest: form.soundTest.value,
+    photo: AppState.pendingPhotoBase64,
   };
-
-  // Save and render
-  await saveAndRender(newAsset);
-
-  // Close modal and reset state
-  closeAssetModal();
-  console.log("Asset saved with form data:", newAsset.properties);
 }
 
-// Expose to global scope for HTML onclick
-window.saveAssetForm = saveAssetForm;
-
-// 4. RENDERING LOGIC
-// A. Render the "Black" Design Layer (Static)
-function renderJobPackLayers() {
-  // Clear existing design layer
-  if (designLayer) {
-    map.removeLayer(designLayer);
-  }
-
-  // Guard: need a work order with design assets
-  if (!currentWorkOrder || !currentWorkOrder.design_assets) {
-    console.warn("No work order loaded, skipping design layer render");
-    return;
-  }
-
-  designLayer = L.layerGroup().addTo(map);
-
-  L.geoJSON(currentWorkOrder.design_assets, {
-    // Style for Lines
-    style: {
-      color: "#2c3e50",
-      dashArray: "5, 10",
-      weight: 3,
-      opacity: 0.8,
-    },
-    // Style for Points - Transformers are squares, others are circles
-    pointToLayer: (f, latlng) => {
-      const assetType = f.properties.asset_type || f.properties.type || "";
-
-      if (assetType.toLowerCase() === "transformer") {
-        // Square marker for transformers
-        const size = 12;
-        return L.marker(latlng, {
-          icon: L.divIcon({
-            className: "transformer-marker",
-            iconSize: [size, size],
-            iconAnchor: [size / 2, size / 2],
-            html: `<div style="width:${size}px;height:${size}px;background:#2c3e50;border:2px solid #fff;transform:rotate(45deg);"></div>`,
-          }),
-        });
-      }
-      // Circle marker for poles and other point assets
-      return L.circleMarker(latlng, {
-        radius: 5,
-        fillColor: "#2c3e50",
-        color: "#fff",
-        weight: 1,
-        fillOpacity: 1,
-      });
-    },
-    // Popups for design assets + cable length labels
-    onEachFeature: function (feature, layer) {
-      const assetType =
-        feature.properties.asset_type || feature.properties.type || "Unknown";
-
-      // Calculate cable length if it's a line
-      if (feature.geometry.type === "LineString") {
-        const coords = feature.geometry.coordinates;
-        const length = calculateLineLength(coords);
-        const lengthStr =
-          length < 1000
-            ? `${length.toFixed(1)}m`
-            : `${(length / 1000).toFixed(2)}km`;
-
-        // Add length to popup
-        layer.bindPopup(
-          `<b>DESIGN: ${assetType}</b><br>Length: ${lengthStr}<br>Status: ${feature.properties.status}`,
-        );
-
-        // Add distance label at midpoint
-        const midIdx = Math.floor(coords.length / 2);
-        const midPoint = coords[midIdx];
-        const label = L.marker([midPoint[1], midPoint[0]], {
-          icon: L.divIcon({
-            className: "cable-length-label",
-            html: `<span>${lengthStr}</span>`,
-            iconSize: [50, 20],
-            iconAnchor: [25, 10],
-          }),
-        });
-        designLayer.addLayer(label);
-      } else {
-        layer.bindPopup(
-          `<b>DESIGN: ${assetType}</b><br>Status: ${feature.properties.status}`,
-        );
-      }
-    },
-  }).addTo(designLayer);
+// DELETE ASSET
+async function deleteAsset(assetId) {
+  await DB.deleteAsset(assetId);
+  await MapController.loadAsBuilt();
+  MapController.getMap()?.closePopup();
+  console.log(`Asset ${assetId} deleted.`);
 }
 
-// B. Render the "Red" As-Built Layer (Dynamic from DB)
-function renderSingleRedMarker(f) {
-  const marker = L.circleMarker(
-    [f.geometry.coordinates[1], f.geometry.coordinates[0]],
-    {
-      radius: 7,
-      fillColor: "#e74c3c",
-      color: "#c0392b",
-      weight: 2,
-      fillOpacity: 1,
-    },
-  );
-
-  // CLICK HANDLER FOR SNAPPING
-  marker.on("click", (e) => onFeatureClick(e, f.properties));
-
-  // Build popup content based on asset type
-  const p = f.properties;
-  const syncStatus = f.pending_sync === 1 ? "Unsynced" : "Synced";
-
-  // Photo thumbnail (if exists)
-  const photoHtml = p.photo
-    ? `<img src="${p.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:4px; margin:8px 0;">`
-    : "";
-
-  let popupContent = "";
-
-  if (p.assetType === "Transformer") {
-    // TRANSFORMER POPUP
-    const gradeColors = {
-      1: "#27ae60",
-      2: "#2ecc71",
-      3: "#f1c40f",
-      4: "#e67e22",
-      5: "#e74c3c",
-    };
-    const getGradeDot = (grade) => {
-      const color = gradeColors[grade] || "#95a5a6";
-      return `<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${color}; margin-right:4px;"></span>`;
-    };
-
-    // Tank issues summary
-    const tankIssues = p.tankIssues || {};
-    const issuesList = [];
-    if (tankIssues.surfaceRust) issuesList.push("Surface Rust");
-    if (tankIssues.pitting) issuesList.push("Pitting");
-    if (tankIssues.weepingOil) issuesList.push("Weeping Oil");
-    if (tankIssues.activeLeak) issuesList.push("Active Leak");
-    const issuesText = issuesList.length > 0 ? issuesList.join(", ") : "None";
-
-    // GMT-only data (if present)
-    const gmtData =
-      p.mounting === "Ground Mounted" &&
-      (p.oilAcidity || p.moistureContent || p.breakdownStrength)
-        ? `<hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-         <b>Oil Analysis</b><br>
-         Acidity: ${p.oilAcidity ?? "—"} mgKOH/g<br>
-         Moisture: ${p.moistureContent ?? "—"} ppm<br>
-         Breakdown: ${p.breakdownStrength ?? "—"} kV`
-        : "";
-
-    popupContent = `
-      <div style="min-width:220px; font-size:0.85rem;">
-        <b style="font-size:1rem;">${p.name}</b><br>
-        <span style="color:#7f8c8d;">${syncStatus}</span>
-        ${photoHtml}
-        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-        <b>Specification</b><br>
-        ${p.mounting || "—"} | ${p.rating || "—"} kVA<br>
-        ${p.manufacturer || "—"} (${p.yearOfManufacture || "—"})<br>
-        Serial: ${p.serialNo || "—"}<br>
-        Cooling: ${p.coolingMedium || "—"}<br>
-        Breather: ${p.breatherType || "—"}
-        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-        <b>Condition</b><br>
-        ${getGradeDot(p.tankGrade)}Tank Grade: ${p.tankGrade || "—"}<br>
-        Issues: ${issuesText}<br>
-        ${getGradeDot(p.finsGrade)}Fins Grade: ${p.finsGrade || "—"}<br>
-        Bushings: ${p.bushings || "—"}<br>
-        Silica Gel: ${p.silicaGel || "—"}<br>
-        Oil Level: ${p.oilLevel || "—"}
-        ${gmtData}
-        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-        <b>CoF</b><br>
-        Bunding: ${p.bunding || "—"}<br>
-        Watercourse: ${p.watercourseProximity || "—"}
-        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-        <button onclick="deleteAsset(${f.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
-      </div>
-    `;
-  } else {
-    // POLE POPUP (existing logic)
-    const conditionColors = {
-      None: "#27ae60",
-      Minor: "#f1c40f",
-      "Surface Softening": "#f1c40f",
-      Low: "#f1c40f",
-      "Surface Rust": "#f1c40f",
-      Significant: "#e67e22",
-      Medium: "#e67e22",
-      Pitting: "#e67e22",
-      Critical: "#e74c3c",
-      "Advanced Decay": "#e74c3c",
-      High: "#e74c3c",
-      "Section Loss": "#e74c3c",
-    };
-
-    const getConditionDot = (value) => {
-      const color = conditionColors[value] || "#95a5a6";
-      return `<span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${color}; margin-right:4px;"></span>`;
-    };
-
-    popupContent = `
-      <div style="min-width:200px; font-size:0.85rem;">
-        <b style="font-size:1rem;">${p.name}</b><br>
-        <span style="color:#7f8c8d;">${syncStatus}</span>
-        ${photoHtml}
-        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-        <b>Specification</b><br>
-        ${p.material || "—"} | ${p.height || "—"} | ${p.stoutness || "—"}<br>
-        Treatment: ${p.treatment || "—"}<br>
-        Transformers: ${p.transformers ?? "—"}
-        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-        <b>Condition</b><br>
-        ${getConditionDot(p.topRot)}Top Rot: ${p.topRot || "—"}<br>
-        ${getConditionDot(p.externalRot)}External Rot: ${p.externalRot || "—"}<br>
-        ${getConditionDot(p.birdDamage)}Bird Damage: ${p.birdDamage || "—"}<br>
-        Verticality: ${p.verticality || "—"}<br>
-        ${getConditionDot(p.steelCorrosion)}Steel Corrosion: ${p.steelCorrosion || "—"}<br>
-        Sound Test: ${p.soundTest || "—"}
-        <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-        <button onclick="deleteAsset(${f.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
-      </div>
-    `;
-  }
-
-  if (f.pending_sync === 1) {
-    marker.setStyle({ fillOpacity: 0.5, dashArray: "2, 2" });
-  }
-  marker.bindPopup(popupContent, { maxWidth: 300 });
-
-  marker.addTo(map);
-}
-
-// NEW: Render Red Lines (Cables)
-function renderSingleRedLine(f) {
-  // Swap coordinates because Leaflet is [Lat, Lng] but GeoJSON is [Lng, Lat]
-  const latlngs = f.geometry.coordinates.map((coord) => [coord[1], coord[0]]);
-
-  const polyline = L.polyline(latlngs, {
-    color: "#e74c3c", // Red
-    weight: 4,
-    opacity: 0.8,
-  });
-
-  // Build detailed popup content for cables
-  const syncStatus = f.pending_sync === 1 ? "(Unsynced)" : "Synced";
-  const p = f.properties;
-
-  // Helper to format traffic light values with color
-  const formatCondition = (value) => {
-    const colors = {
-      None: "#27ae60",
-      Minor: "#f39c12",
-      Significant: "#e67e22",
-      Critical: "#e74c3c",
-    };
-    const color = colors[value] || "#999";
-    return `<span style="color:${color}; font-weight:bold;">${value || "N/A"}</span>`;
-  };
-
-  let popupContent = `
-    <div style="min-width:200px;">
-      <b style="font-size:14px;">${p.name || "Cable"}</b>
-      <span style="float:right; font-size:11px; color:#666;">${syncStatus}</span>
-      <hr style="margin:8px 0; border:none; border-top:1px solid #ddd;">
-  `;
-
-  // Core Specification
-  if (p.voltageLevel || p.cableType || p.conductorMaterial) {
-    popupContent += `
-      <div style="margin-bottom:8px;">
-        <b style="font-size:11px; color:#666;">SPECIFICATION</b><br>
-        ${p.voltageLevel ? `<b>Voltage:</b> ${p.voltageLevel}<br>` : ""}
-        ${p.cableType ? `<b>Type:</b> ${p.cableType}<br>` : ""}
-        ${p.conductorMaterial ? `<b>Conductor:</b> ${p.conductorMaterial}<br>` : ""}
-        ${p.crossSectionalArea ? `<b>CSA:</b> ${p.crossSectionalArea} mm²<br>` : ""}
-        ${p.cores ? `<b>Cores:</b> ${p.cores}<br>` : ""}
-        ${p.installationYear ? `<b>Installed:</b> ${p.installationYear}<br>` : ""}
-      </div>
-    `;
-  }
-
-  // Loading & Environment
-  if (p.dutyFactor || p.situation || p.topography) {
-    popupContent += `
-      <div style="margin-bottom:8px;">
-        <b style="font-size:11px; color:#666;">ENVIRONMENT</b><br>
-        ${p.dutyFactor ? `<b>Duty Factor:</b> ${p.dutyFactor}<br>` : ""}
-        ${p.situation ? `<b>Situation:</b> ${p.situation}<br>` : ""}
-        ${p.topography ? `<b>Topography:</b> ${p.topography}<br>` : ""}
-      </div>
-    `;
-  }
-
-  // Condition Assessment
-  if (p.sheathCondition || p.jointCondition) {
-    popupContent += `
-      <div style="margin-bottom:8px;">
-        <b style="font-size:11px; color:#666;">CONDITION</b><br>
-        ${p.sheathCondition ? `<b>Sheath:</b> ${formatCondition(p.sheathCondition)}<br>` : ""}
-        ${p.jointCondition ? `<b>Joints:</b> ${formatCondition(p.jointCondition)}<br>` : ""}
-        ${p.jointsCount !== undefined ? `<b>Joint Count:</b> ${p.jointsCount}<br>` : ""}
-        ${p.historicalFaults !== undefined ? `<b>Historical Faults:</b> ${p.historicalFaults}<br>` : ""}
-      </div>
-    `;
-  }
-
-  // Known Issues
-  if (p.knownIssues) {
-    const issues = [];
-    if (p.knownIssues.thirdPartyDamageRisk) issues.push("Third Party Risk");
-    if (p.knownIssues.partialDischarge) issues.push("Partial Discharge");
-    if (p.knownIssues.thermalIssues) issues.push("Thermal Issues");
-    if (issues.length > 0) {
-      popupContent += `
-        <div style="margin-bottom:8px;">
-          <b style="font-size:11px; color:#666;">ISSUES</b><br>
-          <span style="color:#e74c3c;">${issues.join(", ")}</span>
-        </div>
-      `;
-    }
-  }
-
-  // Delete button
-  popupContent += `
-      <button onclick="deleteAsset(${f.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
-    </div>
-  `;
-
-  if (f.pending_sync === 1) {
-    polyline.setStyle({ dashArray: "10, 10", opacity: 0.5 });
-  }
-  polyline.bindPopup(popupContent, { maxWidth: 300 });
-
-  polyline.addTo(map);
-}
-
-// Update loadAssets to handle lines too
-async function loadAssets() {
-  // Clear old Red layers (Simple clear all non-tile layers)
-  map.eachLayer((layer) => {
-    // Clear Red Circles AND Red Lines
-    if (
-      (layer instanceof L.CircleMarker &&
-        layer.options.fillColor === "#e74c3c") ||
-      (layer instanceof L.Polyline && layer.options.color === "#e74c3c")
-    ) {
-      map.removeLayer(layer);
-    }
-  });
-
-  const localFeatures = await db.assets.toArray();
-  localFeatures.forEach((f) => {
-    if (f.geometry.type === "Point") renderSingleRedMarker(f);
-    if (f.geometry.type === "LineString") renderSingleRedLine(f);
-  });
-}
-
-//Non-fucntional
-
-// Load from DB on startup
-async function loadAssets() {
-  // Clear old Red markers (but keep Black design layer)
-  map.eachLayer((layer) => {
-    // Hacky way to find Red markers to clear them before re-rendering
-    if (
-      layer instanceof L.CircleMarker &&
-      layer.options.fillColor === "#e74c3c"
-    ) {
-      map.removeLayer(layer);
-    }
-  });
-
-  // Load local data
-  const localFeatures = await db.assets.toArray();
-  localFeatures.forEach(renderSingleRedMarker);
-}
-
-// 5. SYNC LOGIC
+// SYNC LOGIC
 async function syncOfflineChanges() {
-  const unsynced = await db.assets.where("pending_sync").equals(1).toArray();
+  const unsynced = await DB.getUnsynced();
   if (unsynced.length === 0) return;
 
   console.log(`Syncing ${unsynced.length} items...`);
-  updateStatusUI("checking");
+  UI.updateStatus("checking");
 
   try {
-    const response = await fetch(`${API_BASE}/api/sync`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(unsynced),
-    });
-
-    if (response.ok) {
-      // Mark local items as synced
-      for (const asset of unsynced) {
-        await db.assets.update(asset.id, { pending_sync: 0 });
-      }
-      loadAssets(); // Re-render to remove "Ghost" effect
-      updateStatusUI("online");
-      console.log("Sync Complete!");
-    }
+    await API.syncAssets(unsynced);
+    await DB.markSynced(unsynced.map((a) => a.id));
+    await MapController.loadAsBuilt();
+    UI.updateStatus("online");
   } catch (err) {
     console.error("Sync failed", err);
-    updateStatusUI("offline");
+    UI.updateStatus("offline");
   }
 }
 
-// 6. CONNECTION HEALTH CHECK
-const statusBadge = document.getElementById("status");
-let isServerReachable = false;
-
+// CONNECTION HEALTH CHECK
 async function checkServerStatus() {
-  if (!isServerReachable) updateStatusUI("checking");
+  if (!AppState.isServerReachable) UI.updateStatus("checking");
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 2000);
 
   try {
-    const response = await fetch(`${API_BASE}/api/assets`, {
+    const response = await fetch(`${AppConfig.API_BASE}/api/assets`, {
       method: "HEAD",
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
     if (response.ok) {
-      if (!isServerReachable) {
-        isServerReachable = true;
-        updateStatusUI("online");
-        syncOfflineChanges(); // Auto-sync on reconnect
+      if (!AppState.isServerReachable) {
+        AppState.isServerReachable = true;
+        UI.updateStatus("online");
+        syncOfflineChanges();
       }
+      return;
     }
   } catch (err) {
-    if (isServerReachable || statusBadge.classList.contains("checking")) {
-      isServerReachable = false;
-      updateStatusUI("offline");
-    }
+    // fall through
   }
+
+  AppState.isServerReachable = false;
+  UI.updateStatus("offline");
 }
 
-function updateStatusUI(state) {
-  if (state === "online") {
-    statusBadge.innerHTML = "● Online";
-    statusBadge.className = "online";
-  } else if (state === "offline") {
-    statusBadge.innerHTML = "● Offline Mode";
-    statusBadge.className = "offline";
-  } else if (state === "checking") {
-    statusBadge.innerHTML = "● Checking...";
-    statusBadge.className = "checking";
-  }
-}
+// INIT
+(async function init() {
+  openWorkOrderSelector();
+  await MapController.loadAsBuilt();
+  setInterval(checkServerStatus, 5000);
+  checkServerStatus();
+})();
 
-// INITIALIZATION
-// Show work order selector on startup (no auto-load)
-openWorkOrderSelector();
-
-// Load any existing red-line assets from IndexedDB
-loadAssets();
-
-// Server status monitoring
-setInterval(checkServerStatus, 5000);
-checkServerStatus();
-
-// Standard Browser Events
 window.addEventListener("online", checkServerStatus);
-window.addEventListener("offline", () => updateStatusUI(false));
+window.addEventListener("offline", () => UI.updateStatus("offline"));

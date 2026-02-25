@@ -87,16 +87,29 @@
           </button>
         </div>
         <div class="modal-body">
-          <form id="asset-form">
+          <form
+            id="asset-form"
+            action="javascript:void(0);"
+            onsubmit="return false;"
+            novalidate
+          >
             <!-- Form content injected dynamically from forms.js -->
             <div id="form-fields-container"></div>
           </form>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-cancel" onclick="closeAssetModal()">
+          <button
+            type="button"
+            class="btn btn-cancel"
+            onclick="closeAssetModal()"
+          >
             Cancel
           </button>
-          <button class="btn btn-save" onclick="saveAssetForm()">
+          <button
+            type="button"
+            class="btn btn-save"
+            onclick="return saveAssetForm(event);"
+          >
             Save Asset
           </button>
         </div>
@@ -121,9 +134,12 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
-
+    <script src="state.js"></script>
+    <script src="db.js"></script>
+    <script src="api.js"></script>
+    <script src="map.js"></script>
     <script src="forms.js"></script>
+    <script src="ui.js"></script>
     <script src="app.js"></script>
     <script src="../tests/system-checks.js"></script>
 
