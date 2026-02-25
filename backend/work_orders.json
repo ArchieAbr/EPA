@@ -1,0 +1,513 @@
+{
+  "work_orders": [
+    {
+      "id": "WR-2025-9901",
+      "reference": "WR-2025-9901",
+      "name": "Woodhouse Moor Circuit Upgrade",
+      "description": "Install new 4-pole ring circuit for park event power supply. Customer requires 3-phase supply for outdoor events.",
+      "status": "in-progress",
+      "priority": "normal",
+      "assigned_to": "Engineer A",
+      "assigned_date": "2026-02-20",
+      "due_date": "2026-03-01",
+      "bounds": {
+        "center": [53.8100, -1.5600],
+        "zoom": 18,
+        "minZoom": 17,
+        "maxBounds": [[53.8085, -1.5630], [53.8115, -1.5570]]
+      },
+      "design_assets": [
+        {
+          "id": "D-9901-P01",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "P-01",
+            "status": "proposed",
+            "material": "Wood",
+            "height": "10m",
+            "notes": "Northwest corner of ring"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5610, 53.8105]
+          }
+        },
+        {
+          "id": "D-9901-P02",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "P-02",
+            "status": "proposed",
+            "material": "Wood",
+            "height": "10m",
+            "notes": "Northeast corner of ring"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5590, 53.8105]
+          }
+        },
+        {
+          "id": "D-9901-P03",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "P-03",
+            "status": "proposed",
+            "material": "Wood",
+            "height": "10m",
+            "notes": "Southeast corner of ring"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5590, 53.8095]
+          }
+        },
+        {
+          "id": "D-9901-P04",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "P-04",
+            "status": "proposed",
+            "material": "Wood",
+            "height": "10m",
+            "notes": "Southwest corner of ring"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5610, 53.8095]
+          }
+        },
+        {
+          "id": "D-9901-C01",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "C-01",
+            "status": "proposed",
+            "voltage": "11kV",
+            "cable_type": "XLPE",
+            "notes": "North section"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5610, 53.8105], [-1.5590, 53.8105]]
+          }
+        },
+        {
+          "id": "D-9901-C02",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "C-02",
+            "status": "proposed",
+            "voltage": "11kV",
+            "cable_type": "XLPE",
+            "notes": "East section"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5590, 53.8105], [-1.5590, 53.8095]]
+          }
+        },
+        {
+          "id": "D-9901-C03",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "C-03",
+            "status": "proposed",
+            "voltage": "11kV",
+            "cable_type": "XLPE",
+            "notes": "South section"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5590, 53.8095], [-1.5610, 53.8095]]
+          }
+        },
+        {
+          "id": "D-9901-C04",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "C-04",
+            "status": "proposed",
+            "voltage": "11kV",
+            "cable_type": "XLPE",
+            "notes": "West section"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5610, 53.8095], [-1.5610, 53.8105]]
+          }
+        }
+      ],
+      "created_at": "2026-02-15T10:00:00Z",
+      "updated_at": "2026-02-20T14:30:00Z"
+    },
+    {
+      "id": "WR-2025-9902",
+      "reference": "WR-2025-9902",
+      "name": "Hyde Park Feeder Inspection",
+      "description": "Annual condition inspection of Hyde Park 11kV feeder. Check all poles and transformer for defects. Update asset register with current condition data.",
+      "status": "assigned",
+      "priority": "normal",
+      "assigned_to": "Engineer A",
+      "assigned_date": "2026-02-25",
+      "due_date": "2026-03-05",
+      "bounds": {
+        "center": [53.8190, -1.5680],
+        "zoom": 18,
+        "minZoom": 17,
+        "maxBounds": [[53.8175, -1.5710], [53.8205, -1.5650]]
+      },
+      "design_assets": [
+        {
+          "id": "D-9902-P01",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "HP-01",
+            "status": "existing",
+            "material": "Wood",
+            "height": "11m",
+            "install_year": 2018,
+            "notes": "Feeder start - inspect for rot"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5695, 53.8195]
+          }
+        },
+        {
+          "id": "D-9902-P02",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "HP-02",
+            "status": "existing",
+            "material": "Wood",
+            "height": "11m",
+            "install_year": 2018,
+            "notes": "Mid-span pole"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5685, 53.8195]
+          }
+        },
+        {
+          "id": "D-9902-P03",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "HP-03",
+            "status": "existing",
+            "material": "Steel",
+            "height": "12m",
+            "install_year": 2015,
+            "notes": "Corner pole - check corrosion"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5675, 53.8195]
+          }
+        },
+        {
+          "id": "D-9902-T01",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Transformer",
+            "design_id": "HP-TX1",
+            "status": "existing",
+            "rating": "500kVA",
+            "mounting": "Ground Mounted",
+            "install_year": 2012,
+            "notes": "Check oil level and silica gel"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5675, 53.8185]
+          }
+        },
+        {
+          "id": "D-9902-P04",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "HP-04",
+            "status": "existing",
+            "material": "Wood",
+            "height": "10m",
+            "install_year": 2018,
+            "notes": "LV distribution pole"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5665, 53.8185]
+          }
+        },
+        {
+          "id": "D-9902-P05",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "HP-05",
+            "status": "existing",
+            "material": "Wood",
+            "height": "10m",
+            "install_year": 2018,
+            "notes": "End of feeder"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5665, 53.8195]
+          }
+        },
+        {
+          "id": "D-9902-C01",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "HP-C01",
+            "status": "existing",
+            "voltage": "11kV",
+            "cable_type": "PILC",
+            "install_year": 2012,
+            "notes": "Main feeder - overhead"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5695, 53.8195], [-1.5685, 53.8195], [-1.5675, 53.8195]]
+          }
+        },
+        {
+          "id": "D-9902-C02",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "HP-C02",
+            "status": "existing",
+            "voltage": "11kV",
+            "cable_type": "XLPE",
+            "install_year": 2015,
+            "notes": "Underground to transformer"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5675, 53.8195], [-1.5675, 53.8185]]
+          }
+        },
+        {
+          "id": "D-9902-C03",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "HP-C03",
+            "status": "existing",
+            "voltage": "LV",
+            "cable_type": "XLPE",
+            "install_year": 2015,
+            "notes": "LV distribution"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5675, 53.8185], [-1.5665, 53.8185]]
+          }
+        },
+        {
+          "id": "D-9902-C04",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "HP-C04",
+            "status": "existing",
+            "voltage": "LV",
+            "cable_type": "ABC",
+            "install_year": 2018,
+            "notes": "Aerial bundled conductor"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5665, 53.8185], [-1.5665, 53.8195]]
+          }
+        },
+        {
+          "id": "D-9902-C05",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "HP-C05",
+            "status": "existing",
+            "voltage": "LV",
+            "cable_type": "ABC",
+            "install_year": 2018,
+            "notes": "Return to feeder"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5665, 53.8195], [-1.5675, 53.8195]]
+          }
+        }
+      ],
+      "created_at": "2026-02-18T09:00:00Z",
+      "updated_at": "2026-02-25T08:00:00Z"
+    },
+    {
+      "id": "WR-2025-9903",
+      "reference": "WR-2025-9903",
+      "name": "Headingley Tx Replacement",
+      "description": "Replace failed 315kVA ground-mounted transformer with new 500kVA unit. Existing transformer has oil leak and failed DGA. Relocate 2m north to avoid tree root damage.",
+      "status": "assigned",
+      "priority": "high",
+      "assigned_to": "Engineer A",
+      "assigned_date": "2026-02-25",
+      "due_date": "2026-03-10",
+      "bounds": {
+        "center": [53.8280, -1.5820],
+        "zoom": 19,
+        "minZoom": 18,
+        "maxBounds": [[53.8272, -1.5835], [53.8288, -1.5805]]
+      },
+      "design_assets": [
+        {
+          "id": "D-9903-T01",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Transformer",
+            "design_id": "HL-TX1",
+            "status": "remove",
+            "rating": "315kVA",
+            "mounting": "Ground Mounted",
+            "install_year": 2005,
+            "notes": "REMOVE - Failed unit, oil leak confirmed"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5820, 53.8280]
+          }
+        },
+        {
+          "id": "D-9903-T02",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Transformer",
+            "design_id": "HL-TX2",
+            "status": "proposed",
+            "rating": "500kVA",
+            "mounting": "Ground Mounted",
+            "notes": "NEW - Install 2m north of existing location"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5820, 53.8282]
+          }
+        },
+        {
+          "id": "D-9903-P01",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "HL-P01",
+            "status": "existing",
+            "material": "Steel",
+            "height": "12m",
+            "install_year": 2010,
+            "notes": "11kV termination pole - reconnect to new Tx"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5825, 53.8278]
+          }
+        },
+        {
+          "id": "D-9903-P02",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Pole",
+            "design_id": "HL-P02",
+            "status": "existing",
+            "material": "Steel",
+            "height": "12m",
+            "install_year": 2010,
+            "notes": "LV distribution pole - reconnect to new Tx"
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-1.5815, 53.8284]
+          }
+        },
+        {
+          "id": "D-9903-C01",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "HL-C01",
+            "status": "remove",
+            "voltage": "11kV",
+            "cable_type": "XLPE",
+            "notes": "REMOVE - Cable to old Tx location"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5825, 53.8278], [-1.5820, 53.8280]]
+          }
+        },
+        {
+          "id": "D-9903-C02",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "HL-C02",
+            "status": "proposed",
+            "voltage": "11kV",
+            "cable_type": "XLPE",
+            "notes": "NEW - Cable to new Tx location"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5825, 53.8278], [-1.5820, 53.8282]]
+          }
+        },
+        {
+          "id": "D-9903-C03",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "HL-C03",
+            "status": "remove",
+            "voltage": "LV",
+            "cable_type": "XLPE",
+            "notes": "REMOVE - LV from old Tx"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5820, 53.8280], [-1.5815, 53.8284]]
+          }
+        },
+        {
+          "id": "D-9903-C04",
+          "type": "Feature",
+          "properties": {
+            "asset_type": "Cable",
+            "design_id": "HL-C04",
+            "status": "proposed",
+            "voltage": "LV",
+            "cable_type": "XLPE",
+            "notes": "NEW - LV from new Tx"
+          },
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [[-1.5820, 53.8282], [-1.5815, 53.8284]]
+          }
+        }
+      ],
+      "created_at": "2026-02-22T11:00:00Z",
+      "updated_at": "2026-02-25T09:00:00Z"
+    }
+  ]
+}
