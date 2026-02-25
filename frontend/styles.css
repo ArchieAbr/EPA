@@ -466,3 +466,221 @@ html {
 .photo-preview.has-image {
   display: block;
 }
+
+/* ============================================================
+   WORK ORDER SELECTOR
+   ============================================================ */
+.wo-loading {
+  padding: 40px;
+  text-align: center;
+  color: #7f8c8d;
+}
+
+.wo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wo-item {
+  padding: 15px 20px;
+  border-bottom: 1px solid #ecf0f1;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.wo-item:hover {
+  background: #f8f9fa;
+}
+
+.wo-item:last-child {
+  border-bottom: none;
+}
+
+.wo-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 5px;
+}
+
+.wo-item-id {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 0.95rem;
+}
+
+.wo-item-priority {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+
+.wo-item-priority.high {
+  background: #e74c3c;
+  color: white;
+}
+
+.wo-item-priority.normal {
+  background: #3498db;
+  color: white;
+}
+
+.wo-item-priority.low {
+  background: #95a5a6;
+  color: white;
+}
+
+.wo-item-name {
+  font-size: 0.9rem;
+  color: #34495e;
+  margin-bottom: 8px;
+}
+
+.wo-item-meta {
+  display: flex;
+  gap: 15px;
+  font-size: 0.8rem;
+  color: #7f8c8d;
+}
+
+.wo-item-status {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.wo-item-status.in-progress {
+  color: #f39c12;
+}
+
+.wo-item-status.assigned {
+  color: #3498db;
+}
+
+.wo-item-status.completed {
+  color: #27ae60;
+}
+
+/* Work Order Details in Sidebar */
+.wo-active-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.wo-active-id {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: white;
+  margin: 0;
+}
+
+.wo-change-btn {
+  background: none;
+  border: 1px solid #3498db;
+  color: #3498db;
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.wo-change-btn:hover {
+  background: #3498db;
+  color: white;
+}
+
+.wo-active-name {
+  font-size: 0.85rem;
+  color: #bdc3c7;
+  margin: 0 0 8px 0;
+}
+
+.wo-active-meta {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+  margin: 0;
+}
+
+.wo-active-meta span {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.wo-status-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.wo-status-badge.in-progress {
+  background: #f39c12;
+  color: white;
+}
+
+.wo-status-badge.assigned {
+  background: #3498db;
+  color: white;
+}
+
+/* Work Order Meta and Stats */
+.wo-meta {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.wo-priority-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.wo-priority-badge.high {
+  background: #e74c3c;
+  color: white;
+}
+
+.wo-priority-badge.normal {
+  background: #95a5a6;
+  color: white;
+}
+
+.wo-priority-badge.low {
+  background: #27ae60;
+  color: white;
+}
+
+.wo-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #ecf0f1;
+}
+
+.wo-stat {
+  text-align: center;
+}
+
+.wo-stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.wo-stat-label {
+  display: block;
+  font-size: 0.7rem;
+  color: #7f8c8d;
+  text-transform: uppercase;
+}

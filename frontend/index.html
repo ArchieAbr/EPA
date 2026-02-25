@@ -20,21 +20,29 @@
           <div class="dot"></div>
         </div>
 
+        <!-- WORK ORDER INFO (Dynamic) -->
         <div
+          id="wo-info-panel"
           class="menu-group"
           style="background: #233342; border-bottom: 1px solid #1a252f"
         >
           <div class="menu-title" style="color: #3498db">ACTIVE JOB PACK</div>
-          <h2 style="margin: 0; font-size: 1.1rem; color: white">
-            WR-2025-9901
-          </h2>
-          <p style="font-size: 0.85rem; color: #bdc3c7; margin: 5px 0 15px 0">
-            Woodhouse Moor Circuit<br />
-            <span style="color: #f1c40f">● In Progress</span>
-          </p>
+          <div id="wo-details">
+            <p style="color: #7f8c8d; font-size: 0.9rem">
+              No work order selected
+            </p>
+            <button
+              class="tool-btn"
+              onclick="openWorkOrderSelector()"
+              style="margin-top: 10px"
+            >
+              Select Work Order
+            </button>
+          </div>
         </div>
 
-        <div class="menu-group">
+        <!-- CONSTRUCTION TOOLS (Hidden until W/O selected) -->
+        <div id="tools-panel" class="menu-group" style="display: none">
           <div class="menu-title">Construction Tools</div>
 
           <button class="tool-btn" onclick="toggleSubmenu('point-tools')">
@@ -54,7 +62,8 @@
           </button>
         </div>
 
-        <div class="menu-group">
+        <!-- ACTIONS -->
+        <div id="actions-panel" class="menu-group" style="display: none">
           <div class="menu-title">Actions</div>
           <button class="tool-btn" onclick="syncOfflineChanges()">
             Force Sync
@@ -90,6 +99,23 @@
           <button class="btn btn-save" onclick="saveAssetForm()">
             Save Asset
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WORK ORDER SELECTOR MODAL -->
+    <div id="wo-selector-modal" class="modal-overlay">
+      <div class="modal" style="width: 500px">
+        <div class="modal-header">
+          <h3>Select Work Order</h3>
+          <button class="modal-close" onclick="closeWorkOrderSelector()">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body" style="padding: 0">
+          <div id="wo-list-container">
+            <div class="wo-loading">Loading work orders...</div>
+          </div>
         </div>
       </div>
     </div>
