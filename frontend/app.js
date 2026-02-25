@@ -118,6 +118,31 @@ function closeWorkOrderSelector() {
   if (modal) modal.style.display = "none";
 }
 
+// UTILITY: Calculate line length in meters using Haversine formula
+function calculateLineLength(coordinates) {
+  let totalLength = 0;
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const [lon1, lat1] = coordinates[i];
+    const [lon2, lat2] = coordinates[i + 1];
+    totalLength += haversineDistance(lat1, lon1, lat2, lon2);
+  }
+  return totalLength;
+}
+
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Earth's radius in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 // 1. Setup IndexedDB
 const db = new Dexie("AssetDB");
 db.version(1).stores({
@@ -566,22 +591,67 @@ function renderJobPackLayers() {
       weight: 3,
       opacity: 0.8,
     },
-    // Style for Points
-    pointToLayer: (f, latlng) =>
-      L.circleMarker(latlng, {
+    // Style for Points - Transformers are squares, others are circles
+    pointToLayer: (f, latlng) => {
+      const assetType = f.properties.asset_type || f.properties.type || "";
+
+      if (assetType.toLowerCase() === "transformer") {
+        // Square marker for transformers
+        const size = 12;
+        return L.marker(latlng, {
+          icon: L.divIcon({
+            className: "transformer-marker",
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
+            html: `<div style="width:${size}px;height:${size}px;background:#2c3e50;border:2px solid #fff;transform:rotate(45deg);"></div>`,
+          }),
+        });
+      }
+      // Circle marker for poles and other point assets
+      return L.circleMarker(latlng, {
         radius: 5,
         fillColor: "#2c3e50",
         color: "#fff",
         weight: 1,
         fillOpacity: 1,
-      }),
-    // Popups for design assets
+      });
+    },
+    // Popups for design assets + cable length labels
     onEachFeature: function (feature, layer) {
       const assetType =
         feature.properties.asset_type || feature.properties.type || "Unknown";
-      layer.bindPopup(
-        `<b>DESIGN: ${assetType}</b><br>Status: ${feature.properties.status}`,
-      );
+
+      // Calculate cable length if it's a line
+      if (feature.geometry.type === "LineString") {
+        const coords = feature.geometry.coordinates;
+        const length = calculateLineLength(coords);
+        const lengthStr =
+          length < 1000
+            ? `${length.toFixed(1)}m`
+            : `${(length / 1000).toFixed(2)}km`;
+
+        // Add length to popup
+        layer.bindPopup(
+          `<b>DESIGN: ${assetType}</b><br>Length: ${lengthStr}<br>Status: ${feature.properties.status}`,
+        );
+
+        // Add distance label at midpoint
+        const midIdx = Math.floor(coords.length / 2);
+        const midPoint = coords[midIdx];
+        const label = L.marker([midPoint[1], midPoint[0]], {
+          icon: L.divIcon({
+            className: "cable-length-label",
+            html: `<span>${lengthStr}</span>`,
+            iconSize: [50, 20],
+            iconAnchor: [25, 10],
+          }),
+        });
+        designLayer.addLayer(label);
+      } else {
+        layer.bindPopup(
+          `<b>DESIGN: ${assetType}</b><br>Status: ${feature.properties.status}`,
+        );
+      }
     },
   }).addTo(designLayer);
 }
