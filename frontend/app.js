@@ -1,85 +1,122 @@
 // CONFIGURATION
 const API_BASE = "http://127.0.0.1:5000";
 
-// MOCK JOB PACK DATA
-const currentJobPack = {
-  id: "WR-2025-9901",
-  name: "Woodhouse Moor Circuit Upgrade",
-  status: "Design Approval",
-  description: "Install new 4-pole ring circuit for park event power supply.",
-  center: [53.81, -1.56],
+// WORK ORDER STATE
+let currentWorkOrder = null;
+let designLayer = null; // Layer group for black-line design assets
 
-  // The "Design" (Black Lines/Dots)
-  proposed_assets: [
-    // Poles
-    {
-      type: "Feature",
-      properties: { type: "Pole", status: "Proposed", id: "P-01" },
-      geometry: { type: "Point", coordinates: [-1.561, 53.8105] }, // Top-Left
-    },
-    {
-      type: "Feature",
-      properties: { type: "Pole", status: "Proposed", id: "P-02" },
-      geometry: { type: "Point", coordinates: [-1.559, 53.8105] }, // Top-Right
-    },
-    {
-      type: "Feature",
-      properties: { type: "Pole", status: "Proposed", id: "P-03" },
-      geometry: { type: "Point", coordinates: [-1.559, 53.8095] }, // Bottom-Right
-    },
-    {
-      type: "Feature",
-      properties: { type: "Pole", status: "Proposed", id: "P-04" },
-      geometry: { type: "Point", coordinates: [-1.561, 53.8095] }, // Bottom-Left
-    },
+// WORK ORDER API FUNCTIONS
+async function fetchWorkOrders() {
+  try {
+    const response = await fetch(`${API_BASE}/api/workorders`);
+    if (!response.ok) throw new Error("Failed to fetch work orders");
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching work orders:", error);
+    return [];
+  }
+}
 
-    // Cables
-    {
-      type: "Feature",
-      properties: { type: "Cable", status: "Proposed", voltage: "11kV" },
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [-1.561, 53.8105],
-          [-1.559, 53.8105],
-        ], // Top
-      },
-    },
-    {
-      type: "Feature",
-      properties: { type: "Cable", status: "Proposed", voltage: "11kV" },
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [-1.559, 53.8105],
-          [-1.559, 53.8095],
-        ], // Right
-      },
-    },
-    {
-      type: "Feature",
-      properties: { type: "Cable", status: "Proposed", voltage: "11kV" },
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [-1.559, 53.8095],
-          [-1.561, 53.8095],
-        ], // Bottom
-      },
-    },
-    {
-      type: "Feature",
-      properties: { type: "Cable", status: "Proposed", voltage: "11kV" },
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [-1.561, 53.8095],
-          [-1.561, 53.8105],
-        ], // Left
-      },
-    },
-  ],
-};
+async function loadWorkOrder(woId) {
+  try {
+    const response = await fetch(`${API_BASE}/api/workorders/${woId}`);
+    if (!response.ok) throw new Error("Failed to load work order");
+    currentWorkOrder = await response.json();
+
+    // Update map view and bounds
+    const bounds = currentWorkOrder.bounds;
+    map.setView([bounds.center[0], bounds.center[1]], bounds.zoom);
+
+    // Lock map to work order bounds
+    // maxBounds format: [[sw_lat, sw_lng], [ne_lat, ne_lng]]
+    if (bounds.maxBounds && bounds.maxBounds.length === 2) {
+      const maxBounds = L.latLngBounds(
+        [bounds.maxBounds[0][0], bounds.maxBounds[0][1]], // SW corner
+        [bounds.maxBounds[1][0], bounds.maxBounds[1][1]], // NE corner
+      );
+      map.setMaxBounds(maxBounds);
+      map.setMinZoom(bounds.minZoom || bounds.zoom - 2);
+      // Make bounds "solid" - prevents any dragging outside the bounds
+      map.options.maxBoundsViscosity = 1.0;
+    }
+
+    // Render design assets and update UI
+    renderJobPackLayers();
+    updateWorkOrderUI();
+    closeWorkOrderSelector();
+
+    // Show tools panel
+    document.getElementById("tools-panel").style.display = "block";
+
+    console.log("Loaded work order:", currentWorkOrder.id);
+  } catch (error) {
+    console.error("Error loading work order:", error);
+    alert("Failed to load work order. Please try again.");
+  }
+}
+
+function updateWorkOrderUI() {
+  const detailsContainer = document.getElementById("wo-details");
+  if (!currentWorkOrder || !detailsContainer) return;
+
+  detailsContainer.innerHTML = `
+    <div class="wo-active-header">
+      <span class="wo-active-id">${currentWorkOrder.id}</span>
+      <button class="wo-change-btn" onclick="openWorkOrderSelector()">Change</button>
+    </div>
+    <h3>${currentWorkOrder.name}</h3>
+    <p>${currentWorkOrder.description}</p>
+    <div class="wo-meta">
+      <span class="wo-status-badge ${currentWorkOrder.status}">${currentWorkOrder.status}</span>
+      ${currentWorkOrder.priority ? `<span class="wo-priority-badge ${currentWorkOrder.priority}">${currentWorkOrder.priority}</span>` : ""}
+    </div>
+    <div class="wo-stats">
+      <div class="wo-stat">
+        <span class="wo-stat-value">${currentWorkOrder.design_assets?.length || 0}</span>
+        <span class="wo-stat-label">Design Assets</span>
+      </div>
+    </div>
+  `;
+}
+
+async function openWorkOrderSelector() {
+  const modal = document.getElementById("wo-selector-modal");
+  const listContainer = document.getElementById("wo-list-container");
+
+  if (!modal || !listContainer) return;
+
+  listContainer.innerHTML = "<p>Loading work orders...</p>";
+  modal.style.display = "flex";
+
+  const workOrders = await fetchWorkOrders();
+
+  if (workOrders.length === 0) {
+    listContainer.innerHTML = "<p>No work orders available.</p>";
+    return;
+  }
+
+  listContainer.innerHTML = workOrders
+    .map(
+      (wo) => `
+      <div class="wo-item ${currentWorkOrder?.id === wo.id ? "wo-item-active" : ""}" onclick="loadWorkOrder('${wo.id}')">
+        <div class="wo-item-header">
+          <span class="wo-item-id">${wo.id}</span>
+          <span class="wo-item-priority ${wo.priority || "normal"}">${wo.priority || "normal"}</span>
+        </div>
+        <div class="wo-item-name">${wo.name}</div>
+        <div class="wo-item-footer">
+          <span class="wo-item-status ${wo.status}">${wo.status}</span>
+        </div>
+      </div>
+    `,
+    )
+    .join("");
+}
+
+function closeWorkOrderSelector() {
+  const modal = document.getElementById("wo-selector-modal");
+  if (modal) modal.style.display = "none";
+}
 
 // 1. Setup IndexedDB
 const db = new Dexie("AssetDB");
@@ -87,8 +124,10 @@ db.version(1).stores({
   assets: "id, properties, geometry, pending_sync",
 });
 
-// 2. Setup Map
-const map = L.map("map").setView(currentJobPack.center, 18);
+// 2. Setup Map (default center: Leeds)
+const DEFAULT_CENTER = [53.81, -1.56];
+const DEFAULT_ZOOM = 14;
+const map = L.map("map").setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "© OpenStreetMap",
 }).addTo(map);
@@ -506,9 +545,20 @@ window.saveAssetForm = saveAssetForm;
 // 4. RENDERING LOGIC
 // A. Render the "Black" Design Layer (Static)
 function renderJobPackLayers() {
-  const proposedLayer = L.layerGroup().addTo(map);
+  // Clear existing design layer
+  if (designLayer) {
+    map.removeLayer(designLayer);
+  }
 
-  L.geoJSON(currentJobPack.proposed_assets, {
+  // Guard: need a work order with design assets
+  if (!currentWorkOrder || !currentWorkOrder.design_assets) {
+    console.warn("No work order loaded, skipping design layer render");
+    return;
+  }
+
+  designLayer = L.layerGroup().addTo(map);
+
+  L.geoJSON(currentWorkOrder.design_assets, {
     // Style for Lines
     style: {
       color: "#2c3e50",
@@ -525,13 +575,15 @@ function renderJobPackLayers() {
         weight: 1,
         fillOpacity: 1,
       }),
-    // FIX: Restore the Popups (This was missing!)
+    // Popups for design assets
     onEachFeature: function (feature, layer) {
+      const assetType =
+        feature.properties.asset_type || feature.properties.type || "Unknown";
       layer.bindPopup(
-        `<b>DESIGN: ${feature.properties.type}</b><br>Status: ${feature.properties.status}`,
+        `<b>DESIGN: ${assetType}</b><br>Status: ${feature.properties.status}`,
       );
     },
-  }).addTo(proposedLayer);
+  }).addTo(designLayer);
 }
 
 // B. Render the "Red" As-Built Layer (Dynamic from DB)
@@ -897,8 +949,13 @@ function updateStatusUI(state) {
 }
 
 // INITIALIZATION
-renderJobPackLayers(); // Draw Black Lines
-loadAssets(); // Draw Red Dots - change?
+// Show work order selector on startup (no auto-load)
+openWorkOrderSelector();
+
+// Load any existing red-line assets from IndexedDB
+loadAssets();
+
+// Server status monitoring
 setInterval(checkServerStatus, 5000);
 checkServerStatus();
 
