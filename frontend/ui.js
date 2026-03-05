@@ -288,6 +288,25 @@ const UI = (() => {
     }
   };
 
+  // Non-intrusive toast notification
+  const showToast = (message, durationMs = 3000) => {
+    const toast = document.createElement("div");
+    toast.textContent = message;
+    toast.style.cssText = `
+      position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+      background:#1a252f; color:#2ecc71; padding:10px 20px;
+      border-radius:6px; font-size:14px; font-weight:600;
+      box-shadow:0 4px 12px rgba(0,0,0,0.4); z-index:3000;
+      opacity:0; transition:opacity 0.3s ease;
+    `;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => (toast.style.opacity = "1"));
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      setTimeout(() => toast.remove(), 300);
+    }, durationMs);
+  };
+
   return {
     showWorkOrderSelector,
     hideWorkOrderSelector,
@@ -313,6 +332,7 @@ const UI = (() => {
     showCableDrawingBanner,
     hideCableDrawingBanner,
     clearPopup,
+    showToast,
   };
 })();
 

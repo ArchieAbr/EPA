@@ -30,7 +30,8 @@ self.addEventListener("install", (event) => {
       return cache.addAll(STATIC_ASSETS);
     }),
   );
-  self.skipWaiting();
+  // Note: deliberately NOT calling skipWaiting() to avoid
+  // disrupting the active page mid-session.
 });
 
 // Activate: clean up old caches
@@ -47,7 +48,6 @@ self.addEventListener("activate", (event) => {
         ),
       ),
   );
-  self.clients.claim();
 });
 
 // Fetch: serve from cache, fall back to network, cache map tiles on the fly

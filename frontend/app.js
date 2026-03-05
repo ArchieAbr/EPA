@@ -97,6 +97,7 @@ async function loadWorkOrder(woId) {
     }
 
     AppState.currentWorkOrder = workOrder;
+    localStorage.setItem("activeWorkOrderId", workOrder.id);
     MapController.setBounds(workOrder.bounds);
 
     // Determine which design assets have already been accepted
@@ -486,6 +487,7 @@ async function clearLocalData() {
     return;
   }
   await DB.clearAll();
+  localStorage.removeItem("activeWorkOrderId");
   AppState.currentWorkOrder = null;
   AppState.currentTool = null;
   AppState.cableStartNode = null;
@@ -518,6 +520,7 @@ async function syncOfflineChanges() {
     await updateSyncBadge();
 
     UI.updateStatus("online");
+    UI.showToast(`✓ Synced ${result.processed} action(s)`);
     console.log(`Sync complete: ${result.processed} actions processed.`);
   } catch (err) {
     console.error("Sync failed:", err);
@@ -567,7 +570,19 @@ async function checkServerStatus() {
   // Check connectivity first
   await checkServerStatus();
   await updateSyncBadge();
-  openWorkOrderSelector();
+
+  // Auto-restore last active work order (prevents reset on SW / page reload)
+  const savedWoId = localStorage.getItem("activeWorkOrderId");
+  if (savedWoId) {
+    try {
+      await loadWorkOrder(savedWoId);
+    } catch {
+      localStorage.removeItem("activeWorkOrderId");
+      openWorkOrderSelector();
+    }
+  } else {
+    openWorkOrderSelector();
+  }
 
   // Periodic health check
   setInterval(checkServerStatus, 5000);
