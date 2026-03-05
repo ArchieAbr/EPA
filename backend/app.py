@@ -95,6 +95,24 @@ def seed_if_empty():
         _seed_assets()
 
 
+def reset_database():
+    """Drop all tables, recreate them, and re-seed from the JSON/GeoJSON files.
+
+    This restores the database to its default state: seeded work orders
+    (with no edits) and the original asset register. All audit log entries,
+    user-created assets, and accepted designs are removed.
+    """
+    log.warning("Dropping all tables…")
+    db.drop_all()
+    log.info("Recreating schema…")
+    db.create_all()
+    _seed_work_orders()
+    _seed_assets()
+    wo_count = WorkOrder.query.count()
+    asset_count = Asset.query.count()
+    log.info("Database reset complete — %d work orders, %d assets seeded.", wo_count, asset_count)
+
+
 # ─────────────────────────── Helpers ───────────────────────────
 
 def _asset_to_geojson(asset: Asset) -> dict:
@@ -425,6 +443,14 @@ def admin_dashboard():
 # ─────────────────────────── Entrypoint ───────────────────────────
 
 if __name__ == "__main__":
+    import sys
+
+    if "--reset" in sys.argv:
+        with app.app_context():
+            reset_database()
+        print("✓ Database has been reset to default seed data.")
+        sys.exit(0)
+
     with app.app_context():
         seed_if_empty()
     app.run(debug=True, port=5000)
