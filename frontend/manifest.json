@@ -1,0 +1,9 @@
+{
+  "name": "Offline GIS Asset Capture",
+  "short_name": "GIS Capture",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#2c3e50",
+  "theme_color": "#3498db",
+  "description": "Offline-first field engineering tool for asset data capture"
+}

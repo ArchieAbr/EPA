@@ -10,6 +10,7 @@
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     />
     <link rel="stylesheet" href="styles.css" />
+    <link rel="manifest" href="manifest.json" />
   </head>
   <body>
     <div class="app-container">
@@ -73,6 +74,14 @@
 
       <main class="map-wrapper">
         <div id="status" class="checking">Checking...</div>
+        <div
+          id="sync-badge"
+          class="sync-badge"
+          style="display: none"
+          onclick="syncOfflineChanges()"
+        >
+          0 pending
+        </div>
         <div id="map"></div>
       </main>
     </div>
@@ -134,6 +143,7 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/dexie@4.0.11/dist/dexie.min.js"></script>
     <script src="state.js"></script>
     <script src="db.js"></script>
     <script src="api.js"></script>
@@ -144,16 +154,19 @@
     <script src="../tests/system-checks.js"></script>
 
     <script>
-      // Only keep the UI toggle logic here
+      // UI toggle & service worker registration
       function toggleSubmenu(id) {
         const el = document.getElementById(id);
-        if (el.style.display === "block") {
-          el.style.display = "none";
-        } else {
-          el.style.display = "block";
-        }
+        el.style.display = el.style.display === "block" ? "none" : "block";
       }
-      // NOTE TO SELF: activateTool() has been removed from here.
+
+      // Register service worker for offline support
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("sw.js").then(
+          (reg) => console.log("[SW] Registered:", reg.scope),
+          (err) => console.warn("[SW] Registration failed:", err),
+        );
+      }
     </script>
   </body>
 </html>

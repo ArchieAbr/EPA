@@ -141,11 +141,12 @@ const MapController = (() => {
     const isTransformer =
       (
         feature.properties.assetType ||
+        feature.properties.asset_type ||
         feature.properties.type ||
         ""
       ).toLowerCase() === "transformer";
 
-    const pending = feature.pending_sync === 1;
+    const pending = feature._source === "local";
 
     const marker = isTransformer
       ? L.marker(
@@ -178,7 +179,7 @@ const MapController = (() => {
     }
 
     const p = feature.properties;
-    const syncStatus = feature.pending_sync === 1 ? "Unsynced" : "Synced";
+    const syncStatus = feature._source === "local" ? "Unsynced" : "Synced";
     const photoHtml = p.photo
       ? `<img src="${p.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:4px; margin:8px 0;">`
       : "";
@@ -242,7 +243,7 @@ const MapController = (() => {
           Bunding: ${p.bunding || "—"}<br>
           Watercourse: ${p.watercourseProximity || "—"}
           <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-          <button onclick="deleteAsset(${feature.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
+          <button onclick="deleteAsset('${feature.id}')" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
         </div>
       `;
     } else {
@@ -285,12 +286,12 @@ const MapController = (() => {
           ${getConditionDot(p.steelCorrosion)}Steel Corrosion: ${p.steelCorrosion || "—"}<br>
           Sound Test: ${p.soundTest || "—"}
           <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
-          <button onclick="deleteAsset(${feature.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
+          <button onclick="deleteAsset('${feature.id}')" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
         </div>
       `;
     }
 
-    if (feature.pending_sync === 1 && typeof marker.setStyle === "function") {
+    if (feature._source === "local" && typeof marker.setStyle === "function") {
       marker.setStyle({ fillOpacity: 0.5, dashArray: "2, 2" });
     }
     marker.bindPopup(popupContent, { maxWidth: 300 });
@@ -310,7 +311,7 @@ const MapController = (() => {
       opacity: 0.8,
     });
 
-    const syncStatus = feature.pending_sync === 1 ? "(Unsynced)" : "Synced";
+    const syncStatus = feature._source === "local" ? "(Unsynced)" : "Synced";
     const p = feature.properties;
 
     const formatCondition = (value) => {
@@ -384,11 +385,11 @@ const MapController = (() => {
     }
 
     popupContent += `
-        <button onclick="deleteAsset(${feature.id})" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
+        <button onclick="deleteAsset('${feature.id}')" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
       </div>
     `;
 
-    if (feature.pending_sync === 1) {
+    if (feature._source === "local") {
       polyline.setStyle({ dashArray: "10, 10", opacity: 0.5 });
     }
     polyline.bindPopup(popupContent, { maxWidth: 300 });
@@ -408,10 +409,15 @@ const MapController = (() => {
     });
   };
 
-  const loadAsBuilt = async () => {
+  /**
+   * Render an array of local assets (from IndexedDB) on the map.
+   * Called by app.js with the current work order's cached assets.
+   */
+  const renderLocalAssets = (assets) => {
     clearRedLayers();
-    const localFeatures = await DB.getAssets();
-    localFeatures.forEach((f) => {
+    if (!assets || !assets.length) return;
+    assets.forEach((f) => {
+      if (!f.geometry) return;
       if (f.geometry.type === "Point") renderSingleRedMarker(f);
       if (f.geometry.type === "LineString") renderSingleRedLine(f);
     });
@@ -421,7 +427,7 @@ const MapController = (() => {
     initMap,
     setBounds,
     renderJobPackLayers,
-    loadAsBuilt,
+    renderLocalAssets,
     bindFeatureClick,
     getMap: () => map,
   };

@@ -1,54 +1,67 @@
-from datetime import datetime
+"""
+SQLite database models for the Offline-First GIS Asset Capture tool.
+
+Tables:
+  - WorkOrder:  Job packs with design assets (what engineers need to build/inspect).
+  - Asset:      The master asset register (real-world network infrastructure).
+  - AuditLog:   Historical record of every sync action for traceability.
+"""
+
+from datetime import datetime, timezone
 
 from flask_sqlalchemy import SQLAlchemy
 
-# Shared SQLAlchemy instance so models and app can both access it
-_db = SQLAlchemy()
-
-db = _db  # exposed alias for clarity
-
-
-class Asset(db.Model):
-    __tablename__ = "assets"
-    id = db.Column(db.String, primary_key=True)
-    asset_type = db.Column(db.String, nullable=False)
-    geometry = db.Column(db.JSON, nullable=False)
-    properties_json = db.Column(db.JSON, nullable=False)
-    status = db.Column(db.String, default="active")
-    last_work_order_id = db.Column(db.String, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+db = SQLAlchemy()
 
 
 class WorkOrder(db.Model):
+    """A job pack issued to a field engineer."""
+
     __tablename__ = "work_orders"
+
     id = db.Column(db.String, primary_key=True)
     reference = db.Column(db.String, nullable=False)
     name = db.Column(db.String, nullable=False)
     description = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String, nullable=True)
-    priority = db.Column(db.String, nullable=True)
+    status = db.Column(db.String, default="assigned")
+    priority = db.Column(db.String, default="normal")
     assigned_to = db.Column(db.String, nullable=True)
     assigned_date = db.Column(db.String, nullable=True)
     due_date = db.Column(db.String, nullable=True)
-    bounds = db.Column(db.JSON, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    bounds = db.Column(db.JSON, nullable=True)          # {center, zoom, minZoom, maxBounds}
+    design_assets = db.Column(db.JSON, nullable=True)   # Array of GeoJSON features
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
 
 
-class WorkOrderAsset(db.Model):
-    __tablename__ = "work_order_assets"
+class Asset(db.Model):
+    """A real-world infrastructure asset in the master register."""
+
+    __tablename__ = "assets"
+
     id = db.Column(db.String, primary_key=True)
-    work_order_id = db.Column(db.String, db.ForeignKey("work_orders.id"), nullable=False)
-    asset_id = db.Column(db.String, db.ForeignKey("assets.id"), nullable=True)
-    design_geometry = db.Column(db.JSON, nullable=True)
-    as_built_geometry = db.Column(db.JSON, nullable=True)
-    design_properties = db.Column(db.JSON, nullable=True)
-    as_built_properties = db.Column(db.JSON, nullable=True)
-    action = db.Column(db.String, default="CREATE")
-    status = db.Column(db.String, default="proposed")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    asset_type = db.Column(db.String, nullable=False)           # Pole, Transformer, Cable
+    geometry = db.Column(db.JSON, nullable=False)                # GeoJSON geometry object
+    properties = db.Column(db.JSON, nullable=False, default={})  # All captured field data
+    status = db.Column(db.String, default="active")              # active | decommissioned
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
+                           onupdate=lambda: datetime.now(timezone.utc))
 
 
-__all__ = ["db", "Asset", "WorkOrder", "WorkOrderAsset"]
+class AuditLog(db.Model):
+    """Immutable log of every sync action processed by the server."""
+
+    __tablename__ = "audit_log"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    action = db.Column(db.String, nullable=False)         # CREATE | UPDATE | DELETE
+    asset_id = db.Column(db.String, nullable=False)
+    work_order_id = db.Column(db.String, nullable=True)
+    engineer = db.Column(db.String, nullable=True)
+    payload = db.Column(db.JSON, nullable=True)            # Snapshot of what was sent
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+__all__ = ["db", "WorkOrder", "Asset", "AuditLog"]

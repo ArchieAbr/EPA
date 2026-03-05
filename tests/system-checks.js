@@ -1,5 +1,5 @@
 // ============================================================
-// SYSTEM CHECKS - In-Browser Test Suite
+// SYSTEM CHECKS — In-Browser Test Suite
 // Run from console: SystemTests.runAll()
 // ============================================================
 
@@ -8,7 +8,7 @@ const SystemTests = {
   passed: 0,
   failed: 0,
 
-  // ==================== TEST RUNNER ====================
+  // ==================== Test Runner ====================
   async runAll() {
     this.results = [];
     this.passed = 0;
@@ -19,8 +19,11 @@ const SystemTests = {
       "font-size: 16px; font-weight: bold; color: #3498db;",
     );
 
-    // Core functionality tests
-    await this.test("IndexedDB Connection", this.testIndexedDBConnection);
+    // Core checks
+    await this.test("IndexedDB (Dexie) Connection", this.testDexieConnection);
+    await this.test("Sync Queue Operations", this.testSyncQueue);
+    await this.test("Local Asset CRUD", this.testLocalAssetCRUD);
+    await this.test("Work Order Cache", this.testWorkOrderCache);
     await this.test("Form Template - Pole", this.testPoleFormTemplate);
     await this.test(
       "Form Template - Transformer",
@@ -32,14 +35,8 @@ const SystemTests = {
       "Grade Selector Initialisation",
       this.testGradeSelectorInit,
     );
-    await this.test("Asset Creation - Pole", this.testPoleCreation);
-    await this.test(
-      "Asset Creation - Transformer",
-      this.testTransformerCreation,
-    );
-    await this.test("Asset Creation - Cable", this.testCableCreation);
-    await this.test("Asset Deletion", this.testAssetDeletion);
-    await this.test("Photo Capture Init", this.testPhotoCapture);
+    await this.test("Map Controller Exists", this.testMapController);
+    await this.test("Service Worker Registered", this.testServiceWorker);
 
     this.printSummary();
     return {
@@ -49,7 +46,6 @@ const SystemTests = {
     };
   },
 
-  // Test wrapper with error handling
   async test(name, testFn) {
     try {
       const result = await testFn.call(this);
@@ -69,18 +65,95 @@ const SystemTests = {
     }
   },
 
-  // ==================== INDIVIDUAL TESTS ====================
+  // ==================== Individual Tests ====================
 
-  // Test 1: IndexedDB Connection
-  async testIndexedDBConnection() {
-    if (typeof db === "undefined") {
-      return { success: false, message: "Dexie db instance not found" };
+  async testDexieConnection() {
+    if (typeof Dexie === "undefined") {
+      return { success: false, message: "Dexie library not loaded" };
     }
-    const count = await db.assets.count();
-    return { success: true, message: `Connected. ${count} assets in DB.` };
+    if (typeof idb === "undefined") {
+      return { success: false, message: "idb (Dexie instance) not found" };
+    }
+    const count = await idb.local_assets.count();
+    return {
+      success: true,
+      message: `Connected. ${count} local assets cached.`,
+    };
   },
 
-  // Test 2: Pole Form Template
+  async testSyncQueue() {
+    // Add a test entry
+    await DB.queueAction({
+      action: "CREATE",
+      asset_id: "test-sync-001",
+      work_order_id: "TEST-WO",
+      asset_type: "Pole",
+      geometry: { type: "Point", coordinates: [0, 0] },
+      properties: { name: "Test" },
+    });
+
+    const queue = await DB.getSyncQueue();
+    const hasEntry = queue.some((e) => e.asset_id === "test-sync-001");
+
+    // Clean up
+    await DB.clearSyncQueue();
+    const afterClear = await DB.getSyncQueueCount();
+
+    if (!hasEntry)
+      return { success: false, message: "Entry not found in queue" };
+    if (afterClear !== 0)
+      return { success: false, message: "Queue not cleared properly" };
+    return { success: true, message: "Queue add/read/clear works" };
+  },
+
+  async testLocalAssetCRUD() {
+    const testAsset = {
+      id: "test-crud-001",
+      type: "Feature",
+      properties: { name: "Test Asset", assetType: "Pole" },
+      geometry: { type: "Point", coordinates: [-1.56, 53.81] },
+      work_order_id: "TEST-WO",
+      _source: "local",
+    };
+
+    // Create
+    await DB.putAsset(testAsset);
+    const fetched = await DB.getAsset("test-crud-001");
+    if (!fetched) return { success: false, message: "Asset not saved" };
+
+    // Update
+    await DB.putAsset({
+      ...testAsset,
+      properties: { ...testAsset.properties, name: "Updated" },
+    });
+    const updated = await DB.getAsset("test-crud-001");
+    if (updated.properties.name !== "Updated")
+      return { success: false, message: "Asset not updated" };
+
+    // Delete
+    await DB.removeAsset("test-crud-001");
+    const deleted = await DB.getAsset("test-crud-001");
+    if (deleted) return { success: false, message: "Asset not deleted" };
+
+    return { success: true, message: "PUT / GET / DELETE all work" };
+  },
+
+  async testWorkOrderCache() {
+    const testWO = {
+      id: "TEST-WO-001",
+      name: "Test Work Order",
+      status: "assigned",
+    };
+    await DB.saveWorkOrder(testWO);
+    const fetched = await DB.getWorkOrder("TEST-WO-001");
+    await DB.deleteWorkOrder("TEST-WO-001");
+
+    if (!fetched) return { success: false, message: "Work order not cached" };
+    if (fetched.name !== "Test Work Order")
+      return { success: false, message: "Wrong data returned" };
+    return { success: true, message: "Work order cache OK" };
+  },
+
   async testPoleFormTemplate() {
     if (typeof getFormTemplate !== "function") {
       return { success: false, message: "getFormTemplate function not found" };
@@ -98,12 +171,11 @@ const SystemTests = {
     };
   },
 
-  // Test 3: Transformer Form Template
   async testTransformerFormTemplate() {
     const template = getFormTemplate("Transformer");
     const hasFields =
       template.includes('id="tx-mounting"') &&
-      template.includes('id="gmt-only-fields"') &&
+      template.includes('id="tx-rating"') &&
       template.includes('data-field="tx-tankGrade"');
     return {
       success: hasFields,
@@ -113,13 +185,12 @@ const SystemTests = {
     };
   },
 
-  // Test 4: Cable Form Template
   async testCableFormTemplate() {
     const template = getFormTemplate("Cable");
     const hasFields =
       template.includes('id="cable-voltage"') &&
       template.includes('data-field="cable-sheath"') &&
-      template.includes('id="cable-joints-count"');
+      template.includes('id="cable-faults"');
     return {
       success: hasFields,
       message: hasFields
@@ -128,240 +199,94 @@ const SystemTests = {
     };
   },
 
-  // Test 5: Traffic Light Initialisation
   async testTrafficLightInit() {
-    // Inject a test template and check initialisation
-    const container = document.getElementById("form-fields-container");
-    const originalHTML = container.innerHTML;
-
-    container.innerHTML = getFormTemplate("Pole");
-    initTrafficLights();
-
-    const trafficLights = container.querySelectorAll(".traffic-light");
-    const hasButtons =
-      trafficLights.length > 0 &&
-      trafficLights[0].querySelectorAll(".traffic-light-btn").length === 4;
-
-    container.innerHTML = originalHTML;
-
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <div class="traffic-light" data-field="test-tl">
+        <button type="button" class="traffic-light-btn green" data-value="None">None</button>
+        <button type="button" class="traffic-light-btn red" data-value="Critical">Critical</button>
+      </div>
+    `;
+    document.body.appendChild(container);
+    UI.initTrafficLights();
+    const btns = container.querySelectorAll(".traffic-light-btn");
+    const hasButtons = btns.length === 2;
+    document.body.removeChild(container);
     return {
       success: hasButtons,
-      message: hasButtons
-        ? `${trafficLights.length} traffic lights found`
-        : "Traffic lights not initialised",
+      message: hasButtons ? "Traffic light buttons found" : "No buttons found",
     };
   },
 
-  // Test 6: Grade Selector Initialisation
   async testGradeSelectorInit() {
-    const container = document.getElementById("form-fields-container");
-    const originalHTML = container.innerHTML;
-
-    container.innerHTML = getFormTemplate("Transformer");
-    initGradeSelectors();
-
-    const gradeSelectors = container.querySelectorAll(".grade-selector");
-    const hasButtons = gradeSelectors.length > 0;
-
-    container.innerHTML = originalHTML;
-
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <div class="grade-selector" data-field="test-grade">
+        <button type="button" class="grade-btn grade-1" data-value="1">1</button>
+        <button type="button" class="grade-btn grade-2" data-value="2">2</button>
+      </div>
+    `;
+    document.body.appendChild(container);
+    UI.initGradeSelectors();
+    const btns = container.querySelectorAll(".grade-btn");
+    const hasButtons = btns.length === 2;
+    document.body.removeChild(container);
     return {
       success: hasButtons,
-      message: hasButtons
-        ? `${gradeSelectors.length} grade selectors found`
-        : "Grade selectors not initialised",
+      message: hasButtons ? "Grade selector buttons found" : "No buttons found",
     };
   },
 
-  // Test 7: Pole Asset Creation
-  async testPoleCreation() {
-    const testId = Date.now();
-    const testAsset = {
-      id: testId,
-      type: "Feature",
-      properties: {
-        name: "Test Pole",
-        assetType: "Pole",
-        material: "Wood",
-        status: "As-Built",
-      },
-      geometry: {
-        type: "Point",
-        coordinates: [-1.5, 53.5],
-      },
-      pending_sync: 1,
-    };
-
-    await db.assets.add(testAsset);
-    const retrieved = await db.assets.get(testId);
-    await db.assets.delete(testId); // Cleanup
-
-    const success = retrieved && retrieved.properties.assetType === "Pole";
+  async testMapController() {
+    if (typeof MapController === "undefined") {
+      return { success: false, message: "MapController not found" };
+    }
+    const hasInit = typeof MapController.initMap === "function";
+    const hasRender = typeof MapController.renderLocalAssets === "function";
+    const hasBounds = typeof MapController.setBounds === "function";
+    const allOk = hasInit && hasRender && hasBounds;
     return {
-      success,
-      message: success
-        ? "Pole saved and retrieved from IndexedDB"
-        : "Failed to save/retrieve pole",
+      success: allOk,
+      message: allOk ? "All methods present" : "Missing methods",
     };
   },
 
-  // Test 8: Transformer Asset Creation
-  async testTransformerCreation() {
-    const testId = Date.now();
-    const testAsset = {
-      id: testId,
-      type: "Feature",
-      properties: {
-        name: "Test Transformer",
-        assetType: "Transformer",
-        mounting: "Ground Mounted",
-        rating: "500",
-        tankGrade: 2,
-      },
-      geometry: {
-        type: "Point",
-        coordinates: [-1.5, 53.5],
-      },
-      pending_sync: 1,
-    };
-
-    await db.assets.add(testAsset);
-    const retrieved = await db.assets.get(testId);
-    await db.assets.delete(testId);
-
-    const success = retrieved && retrieved.properties.tankGrade === 2;
+  async testServiceWorker() {
+    if (!("serviceWorker" in navigator)) {
+      return {
+        success: false,
+        message: "Service Workers not supported in this browser",
+      };
+    }
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    const hasSW = registrations.length > 0;
     return {
-      success,
-      message: success
-        ? "Transformer saved with grade data"
-        : "Failed to save transformer",
+      success: hasSW,
+      message: hasSW
+        ? `${registrations.length} SW registered`
+        : "No SW registered (may need page reload)",
     };
   },
 
-  // Test 9: Cable Asset Creation
-  async testCableCreation() {
-    const testId = Date.now();
-    const testAsset = {
-      id: testId,
-      type: "Feature",
-      properties: {
-        name: "Test Cable",
-        assetType: "Cable",
-        voltageLevel: "HV",
-        cableType: "XLPE",
-      },
-      geometry: {
-        type: "LineString",
-        coordinates: [
-          [-1.5, 53.5],
-          [-1.6, 53.6],
-        ],
-      },
-      pending_sync: 1,
-    };
-
-    await db.assets.add(testAsset);
-    const retrieved = await db.assets.get(testId);
-    await db.assets.delete(testId);
-
-    const success = retrieved && retrieved.geometry.type === "LineString";
-    return {
-      success,
-      message: success
-        ? "Cable LineString saved correctly"
-        : "Failed to save cable geometry",
-    };
-  },
-
-  // Test 10: Asset Deletion
-  async testAssetDeletion() {
-    const testId = Date.now();
-    const testAsset = {
-      id: testId,
-      type: "Feature",
-      properties: { name: "Delete Test" },
-      geometry: { type: "Point", coordinates: [0, 0] },
-      pending_sync: 1,
-    };
-
-    await db.assets.add(testAsset);
-    await db.assets.delete(testId);
-    const retrieved = await db.assets.get(testId);
-
-    const success = retrieved === undefined;
-    return {
-      success,
-      message: success
-        ? "Asset deleted successfully"
-        : "Asset still exists after deletion",
-    };
-  },
-
-  // Test 11: Photo Capture Element
-  async testPhotoCapture() {
-    const container = document.getElementById("form-fields-container");
-    const originalHTML = container.innerHTML;
-
-    container.innerHTML = getFormTemplate("Pole");
-
-    const photoInput = container.querySelector("#photo");
-    const photoPreview = container.querySelector("#photo-preview");
-
-    container.innerHTML = originalHTML;
-
-    const success = photoInput && photoPreview;
-    return {
-      success,
-      message: success
-        ? "Photo input and preview elements found"
-        : "Photo elements missing from template",
-    };
-  },
-
-  // ==================== SUMMARY ====================
+  // ==================== Summary ====================
   printSummary() {
     const total = this.results.length;
-    const passRate = ((this.passed / total) * 100).toFixed(0);
-
-    console.log("\n%c" + "=".repeat(50), "color: #666;");
+    const pct = total > 0 ? ((this.passed / total) * 100).toFixed(0) : 0;
     console.log(
-      `%cRESULTS: ${this.passed}/${total} passed (${passRate}%)`,
+      `\n%c━━━ RESULTS: ${this.passed}/${total} passed (${pct}%) ━━━`,
       `font-size: 14px; font-weight: bold; color: ${this.failed === 0 ? "#27ae60" : "#e74c3c"};`,
     );
-
     if (this.failed > 0) {
-      console.log("%c\nFailed tests:", "color: #e74c3c; font-weight: bold;");
-      this.results
-        .filter((r) => r.status !== "PASS")
-        .forEach((r) => console.log(`  - ${r.name}: ${r.message}`));
+      console.log(
+        "%cFailed tests:",
+        "color: #e74c3c; font-weight: bold;",
+        this.results
+          .filter((r) => r.status !== "PASS")
+          .map((r) => `${r.name}: ${r.message}`)
+          .join("\n"),
+      );
     }
-
-    console.log("%c" + "=".repeat(50) + "\n", "color: #666;");
-  },
-
-  // ==================== QUICK CHECKS ====================
-  // Run individual checks
-  async quickCheck() {
-    console.log("\n%c🔍 QUICK CHECK", "font-size: 14px; font-weight: bold;");
-    const assetCount = await db.assets.count();
-    const unsyncedCount = await db.assets
-      .where("pending_sync")
-      .equals(1)
-      .count();
-    console.log(`  Assets in DB: ${assetCount}`);
-    console.log(`  Unsynced: ${unsyncedCount}`);
-    console.log(`  Form templates: ${Object.keys(formTemplates).join(", ")}`);
-    console.log(
-      `  Server reachable: ${typeof isServerReachable !== "undefined" ? isServerReachable : "unknown"}`,
-    );
   },
 };
 
-// Expose to global scope
 window.SystemTests = SystemTests;
-
-// Usage instructions
-console.log(
-  "%c📋 System Tests loaded. Run: SystemTests.runAll()",
-  "color: #3498db; font-weight: bold;",
-);

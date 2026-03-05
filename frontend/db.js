@@ -1,77 +1,102 @@
-// In-memory placeholder replacing IndexedDB while backend storage is built
-class MemoryTable {
-  constructor() {
-    this.items = [];
-  }
+// ============================================================
+// IndexedDB layer via Dexie.js
+// Three stores: local_work_orders, local_assets, sync_queue
+// ============================================================
 
-  async add(item) {
-    this.items.push(item);
-    return item.id ?? this.items.length;
-  }
+const idb = new Dexie("OfflineGIS");
 
-  async delete(id) {
-    this.items = this.items.filter((i) => i.id !== id);
-  }
-
-  async get(id) {
-    return this.items.find((i) => i.id === id);
-  }
-
-  async toArray() {
-    return [...this.items];
-  }
-
-  where(field) {
-    const self = this;
-    return {
-      equals(value) {
-        return {
-          async toArray() {
-            return self.items.filter((i) => i[field] === value);
-          },
-          async count() {
-            return self.items.filter((i) => i[field] === value).length;
-          },
-        };
-      },
-    };
-  }
-
-  async update(id, changes) {
-    const idx = this.items.findIndex((i) => i.id === id);
-    if (idx === -1) return 0;
-    this.items[idx] = { ...this.items[idx], ...changes };
-    return 1;
-  }
-
-  async count() {
-    return this.items.length;
-  }
-}
-
-const db = {
-  assets: new MemoryTable(),
-};
+idb.version(1).stores({
+  local_work_orders: "id",
+  local_assets: "id, work_order_id",
+  sync_queue: "++id, action, asset_id, work_order_id",
+});
 
 const DB = {
-  addAsset(asset) {
-    return db.assets.add(asset);
+  // ─────────── Work Order cache ───────────
+
+  /** Save a full work order (with design_assets) to local storage. */
+  async saveWorkOrder(wo) {
+    await idb.local_work_orders.put(wo);
   },
-  deleteAsset(id) {
-    return db.assets.delete(id);
+
+  /** Retrieve a cached work order by ID. */
+  async getWorkOrder(id) {
+    return idb.local_work_orders.get(id);
   },
-  async getAssets() {
-    return db.assets.toArray();
+
+  /** List all cached work orders. */
+  async getAllWorkOrders() {
+    return idb.local_work_orders.toArray();
   },
-  async getUnsynced() {
-    return db.assets.where("pending_sync").equals(1).toArray();
+
+  /** Remove a work order and its associated local assets from the cache. */
+  async deleteWorkOrder(id) {
+    await idb.local_assets.where("work_order_id").equals(id).delete();
+    await idb.local_work_orders.delete(id);
   },
-  async markSynced(ids) {
-    for (const id of ids) {
-      await db.assets.update(id, { pending_sync: 0 });
+
+  // ─────────── Local asset cache ───────────
+
+  /** Bulk-save an array of assets (used when downloading a work order). */
+  async saveAssets(assets) {
+    await idb.local_assets.bulkPut(assets);
+  },
+
+  /** Get all local assets, optionally filtered by work_order_id. */
+  async getAssets(workOrderId) {
+    if (workOrderId) {
+      return idb.local_assets
+        .where("work_order_id")
+        .equals(workOrderId)
+        .toArray();
     }
+    return idb.local_assets.toArray();
+  },
+
+  /** Get a single asset by ID. */
+  async getAsset(id) {
+    return idb.local_assets.get(id);
+  },
+
+  /** Add or update a single local asset. */
+  async putAsset(asset) {
+    await idb.local_assets.put(asset);
+  },
+
+  /** Delete a local asset by ID. */
+  async removeAsset(id) {
+    await idb.local_assets.delete(id);
+  },
+
+  // ─────────── Sync queue (action log) ───────────
+
+  /**
+   * Record an action in the sync queue.
+   * @param {Object} entry - { action, asset_id, work_order_id, asset_type, geometry, properties }
+   */
+  async queueAction(entry) {
+    await idb.sync_queue.add({
+      ...entry,
+      timestamp: new Date().toISOString(),
+    });
+  },
+
+  /** Return all pending sync queue entries (ordered by auto-increment ID). */
+  async getSyncQueue() {
+    return idb.sync_queue.toArray();
+  },
+
+  /** Number of pending actions. */
+  async getSyncQueueCount() {
+    return idb.sync_queue.count();
+  },
+
+  /** Clear the entire sync queue (called after successful sync). */
+  async clearSyncQueue() {
+    await idb.sync_queue.clear();
   },
 };
 
+// Expose globally
 window.DB = DB;
-window.db = db; // Expose a Dexie-like shape for tests and legacy calls
+window.idb = idb; // Expose for tests

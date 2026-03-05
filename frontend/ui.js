@@ -243,6 +243,18 @@ const UI = (() => {
     MapController.getMap()?.closePopup();
   };
 
+  // Sync badge
+  const updateSyncBadge = (count) => {
+    const badge = document.getElementById("sync-badge");
+    if (!badge) return;
+    if (count > 0) {
+      badge.style.display = "block";
+      badge.textContent = `${count} pending`;
+    } else {
+      badge.style.display = "none";
+    }
+  };
+
   return {
     showWorkOrderSelector,
     hideWorkOrderSelector,
@@ -252,6 +264,7 @@ const UI = (() => {
     showToolsPanel,
     setMapCursor,
     updateStatus,
+    updateSyncBadge,
     openAssetModal,
     closeAssetModal,
     initTrafficLights,

@@ -1,169 +1,281 @@
+"""
+Backend test suite for the Offline-First GIS Asset Capture API.
+
+Run with:  python -m pytest test_backend.py -v
+"""
+
 import json
-import unittest
-from datetime import datetime, timedelta
+import os
+import sys
+import tempfile
 
-from app import app
-from models import Asset, WorkOrder, WorkOrderAsset, db
+import pytest
+
+# Ensure the backend directory is on the path
+sys.path.insert(0, os.path.dirname(__file__))
+
+from app import app, db, seed_if_empty
 
 
-class BackendIntegrationTests(unittest.TestCase):
-    def setUp(self):
-        app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-        app.config["TESTING"] = True
-        self.ctx = app.app_context()
-        self.ctx.push()
+@pytest.fixture
+def client():
+    """Create a test client with a temporary database."""
+    db_fd, db_path = tempfile.mkstemp(suffix=".db")
+    app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
+    app.config["TESTING"] = True
+
+    with app.app_context():
         db.create_all()
+        seed_if_empty()
 
-        # Seed baseline data
-        wo = WorkOrder(
-            id="WO-1",
-            reference="WO-1",
-            name="Test Work Order",
-            description="Test work order description",
-            status="assigned",
-        )
+    with app.test_client() as client:
+        yield client
 
-        asset1 = Asset(
-            id="A-1",
-            asset_type="Pole",
-            geometry={"type": "Point", "coordinates": [-1.5, 53.5]},
-            properties_json={"asset_type": "Pole", "status": "active"},
-            status="active",
-        )
-        asset2 = Asset(
-            id="A-2",
-            asset_type="Cable",
-            geometry={"type": "LineString", "coordinates": [[-1.5, 53.5], [-1.6, 53.6]]},
-            properties_json={"asset_type": "Cable", "status": "active"},
-            status="active",
-        )
+    os.close(db_fd)
+    os.unlink(db_path)
 
-        old_ts = datetime.utcnow() - timedelta(days=1)
 
-        woa_create = WorkOrderAsset(
-            id="WOA-CREATE",
-            work_order_id=wo.id,
-            design_geometry={"type": "Point", "coordinates": [-1.51, 53.51]},
-            design_properties={"asset_type": "Transformer", "status": "proposed"},
-            action="CREATE",
-            status="proposed",
-            updated_at=old_ts,
-        )
+# ─────────── Health ───────────
 
-        woa_modify = WorkOrderAsset(
-            id="WOA-MODIFY",
-            work_order_id=wo.id,
-            asset_id=asset1.id,
-            design_geometry={"type": "Point", "coordinates": [-1.52, 53.52]},
-            design_properties={"asset_type": "Pole", "status": "existing"},
-            as_built_geometry={"type": "Point", "coordinates": [-1.53, 53.53]},
-            as_built_properties={"asset_type": "Pole", "status": "active", "name": "Updated Pole"},
-            action="MODIFY",
-            status="proposed",
-            updated_at=old_ts,
-        )
+def test_health(client):
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "ok"
 
-        woa_decom = WorkOrderAsset(
-            id="WOA-DECOM",
-            work_order_id=wo.id,
-            asset_id=asset2.id,
-            design_geometry={"type": "LineString", "coordinates": [[-1.5, 53.5], [-1.6, 53.6]]},
-            design_properties={"asset_type": "Cable", "status": "decommission"},
-            action="DECOMMISSION",
-            status="proposed",
-            updated_at=old_ts,
-        )
 
-        db.session.add_all([wo, asset1, asset2, woa_create, woa_modify, woa_decom])
-        db.session.commit()
+# ─────────── Work Orders ───────────
 
-        self.client = app.test_client()
+def test_list_work_orders(client):
+    res = client.get("/api/workorders")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    # Summary should not include full design_assets
+    assert "design_assets" not in data[0]
+    assert "asset_count" in data[0]
 
-    def tearDown(self):
-        db.session.remove()
-        db.drop_all()
-        self.ctx.pop()
 
-    def test_get_workorders_list(self):
-        print("\n[GET] /api/workorders — list work orders")
-        resp = self.client.get("/api/workorders")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertEqual(len(data), 1)
-        self.assertEqual(data[0]["asset_count"], 3)
+def test_get_work_order_detail(client):
+    res = client.get("/api/workorders")
+    wo_id = res.get_json()[0]["id"]
 
-    def test_get_workorder_detail(self):
-        print("\n[GET] /api/workorders/WO-1 — work order pack")
-        resp = self.client.get("/api/workorders/WO-1")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertEqual(data["id"], "WO-1")
-        self.assertEqual(len(data["design_assets"]), 3)
+    res = client.get(f"/api/workorders/{wo_id}")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["id"] == wo_id
+    assert "design_assets" in data
+    assert isinstance(data["design_assets"], list)
 
-    def test_get_assets(self):
-        print("\n[GET] /api/assets — asset register snapshot")
-        resp = self.client.get("/api/assets")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertEqual(data["type"], "FeatureCollection")
-        self.assertEqual(len(data["features"]), 2)
 
-    def test_sync_upsert_returns_new_change(self):
-        print("\n[POST] /api/sync — upsert offline change and return server delta")
-        last_sync = datetime.utcnow().isoformat()
-        payload = {
-            "device_id": "dev-test",
-            "last_sync_ts": last_sync,
-            "changes": [
+def test_get_work_order_not_found(client):
+    res = client.get("/api/workorders/NONEXISTENT")
+    assert res.status_code == 404
+
+
+# ─────────── Existing Assets per Work Order ───────────
+
+def test_get_work_order_assets(client):
+    res = client.get("/api/workorders")
+    wo_id = res.get_json()[0]["id"]
+
+    res = client.get(f"/api/workorders/{wo_id}/assets")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert isinstance(data, list)
+    # Each item should be a GeoJSON feature
+    if len(data) > 0:
+        assert "geometry" in data[0]
+        assert "properties" in data[0]
+
+
+# ─────────── Sync: CREATE ───────────
+
+def test_sync_create(client):
+    res = client.post(
+        "/api/sync",
+        data=json.dumps({
+            "actions": [
                 {
-                    "id": "WOA-NEW",
-                    "work_order_id": "WO-1",
-                    "asset_id": None,
-                    "as_built_geometry": {"type": "Point", "coordinates": [-1.7, 53.7]},
-                    "as_built_properties": {"asset_type": "Pole", "name": "New Pole"},
                     "action": "CREATE",
-                    "status": "proposed",
-                    "updated_at": datetime.utcnow().isoformat() + "Z",
+                    "asset_id": "temp-test-001",
+                    "work_order_id": "WR-2025-9901",
+                    "asset_type": "Pole",
+                    "geometry": {"type": "Point", "coordinates": [-1.56, 53.81]},
+                    "properties": {"name": "Test Pole", "material": "Wood"},
+                    "timestamp": "2026-03-05T12:00:00Z",
                 }
-            ],
-        }
-
-        resp = self.client.post(
-            "/api/sync",
-            data=json.dumps(payload),
-            content_type="application/json",
-        )
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        server_changes = [c["id"] for c in data["server_changes"]]
-        self.assertIn("WOA-NEW", server_changes)
-
-        stored = WorkOrderAsset.query.filter_by(id="WOA-NEW").first()
-        self.assertIsNotNone(stored)
-        self.assertEqual(stored.action.lower(), "create")
-
-    def test_complete_work_order_applies_actions(self):
-        print("\n[POST] /api/workorders/WO-1/complete — apply as-built changes")
-        initial_asset_count = Asset.query.count()
-        resp = self.client.post("/api/workorders/WO-1/complete")
-        self.assertEqual(resp.status_code, 200)
-        data = resp.get_json()
-        self.assertEqual(data["status"], "completed")
-        self.assertEqual(data["summary"], {"created": 1, "updated": 1, "decommissioned": 1})
-
-        self.assertEqual(Asset.query.count(), initial_asset_count + 1)
-
-        asset1 = Asset.query.get("A-1")
-        asset2 = Asset.query.get("A-2")
-
-        self.assertEqual(asset1.properties_json.get("name"), "Updated Pole")
-        self.assertEqual(asset1.last_work_order_id, "WO-1")
-        self.assertEqual(asset2.status, "decommissioned")
-
-        wa_statuses = {wa.id: wa.status for wa in WorkOrderAsset.query.all()}
-        self.assertTrue(all(status == "confirmed" for status in wa_statuses.values()))
+            ]
+        }),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["status"] == "ok"
+    assert data["processed"] == 1
+    assert data["results"][0]["status"] == "ok"
 
 
-if __name__ == "__main__":
-    runner = unittest.TextTestRunner(verbosity=2)
-    unittest.main(testRunner=runner)
+# ─────────── Sync: UPDATE ───────────
+
+def test_sync_update(client):
+    # First create
+    client.post(
+        "/api/sync",
+        data=json.dumps({
+            "actions": [
+                {
+                    "action": "CREATE",
+                    "asset_id": "temp-test-002",
+                    "work_order_id": "WR-2025-9901",
+                    "asset_type": "Pole",
+                    "geometry": {"type": "Point", "coordinates": [-1.56, 53.81]},
+                    "properties": {"name": "Original"},
+                }
+            ]
+        }),
+        content_type="application/json",
+    )
+
+    # Then update
+    res = client.post(
+        "/api/sync",
+        data=json.dumps({
+            "actions": [
+                {
+                    "action": "UPDATE",
+                    "asset_id": "temp-test-002",
+                    "work_order_id": "WR-2025-9901",
+                    "asset_type": "Pole",
+                    "geometry": {"type": "Point", "coordinates": [-1.56, 53.81]},
+                    "properties": {"name": "Updated"},
+                }
+            ]
+        }),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert res.get_json()["results"][0]["status"] == "ok"
+
+
+# ─────────── Sync: DELETE (soft) ───────────
+
+def test_sync_delete(client):
+    # Create then delete
+    client.post(
+        "/api/sync",
+        data=json.dumps({
+            "actions": [
+                {
+                    "action": "CREATE",
+                    "asset_id": "temp-test-003",
+                    "work_order_id": "WR-2025-9901",
+                    "asset_type": "Cable",
+                    "geometry": {"type": "LineString", "coordinates": [[-1.56, 53.81], [-1.55, 53.81]]},
+                    "properties": {"name": "Test Cable"},
+                }
+            ]
+        }),
+        content_type="application/json",
+    )
+
+    res = client.post(
+        "/api/sync",
+        data=json.dumps({
+            "actions": [
+                {
+                    "action": "DELETE",
+                    "asset_id": "temp-test-003",
+                    "work_order_id": "WR-2025-9901",
+                    "asset_type": "Cable",
+                }
+            ]
+        }),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert res.get_json()["results"][0]["status"] == "ok"
+
+
+# ─────────── Sync: Multiple actions in one batch ───────────
+
+def test_sync_batch(client):
+    res = client.post(
+        "/api/sync",
+        data=json.dumps({
+            "actions": [
+                {
+                    "action": "CREATE",
+                    "asset_id": "batch-001",
+                    "work_order_id": "WR-2025-9901",
+                    "asset_type": "Pole",
+                    "geometry": {"type": "Point", "coordinates": [-1.56, 53.81]},
+                    "properties": {"name": "Batch Pole 1"},
+                },
+                {
+                    "action": "CREATE",
+                    "asset_id": "batch-002",
+                    "work_order_id": "WR-2025-9901",
+                    "asset_type": "Pole",
+                    "geometry": {"type": "Point", "coordinates": [-1.555, 53.81]},
+                    "properties": {"name": "Batch Pole 2"},
+                },
+                {
+                    "action": "UPDATE",
+                    "asset_id": "batch-001",
+                    "work_order_id": "WR-2025-9901",
+                    "asset_type": "Pole",
+                    "geometry": {"type": "Point", "coordinates": [-1.56, 53.81]},
+                    "properties": {"name": "Batch Pole 1 Updated"},
+                },
+            ]
+        }),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    data = res.get_json()
+    assert data["processed"] == 3
+    assert all(r["status"] == "ok" for r in data["results"])
+
+
+# ─────────── Sync: Empty payload ───────────
+
+def test_sync_empty(client):
+    res = client.post(
+        "/api/sync",
+        data=json.dumps({"actions": []}),
+        content_type="application/json",
+    )
+    assert res.status_code == 200
+    assert res.get_json()["processed"] == 0
+
+
+# ─────────── Audit Log ───────────
+
+def test_audit_log(client):
+    # Create an asset to generate audit entry
+    client.post(
+        "/api/sync",
+        data=json.dumps({
+            "actions": [
+                {
+                    "action": "CREATE",
+                    "asset_id": "audit-test-001",
+                    "work_order_id": "WR-2025-9901",
+                    "asset_type": "Pole",
+                    "geometry": {"type": "Point", "coordinates": [-1.56, 53.81]},
+                    "properties": {"name": "Audit Test"},
+                }
+            ]
+        }),
+        content_type="application/json",
+    )
+
+    res = client.get("/api/audit")
+    assert res.status_code == 200
+    data = res.get_json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert data[0]["action"] == "CREATE"
+    assert data[0]["asset_id"] == "audit-test-001"

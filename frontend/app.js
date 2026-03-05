@@ -1,19 +1,20 @@
-// Frontend orchestrator
+// ============================================================
+// Frontend orchestrator — wires up map, forms, DB, and sync
+// ============================================================
 
+/* ── Expose handlers to inline HTML ── */
 window.activateTool = activateTool;
 window.openWorkOrderSelector = openWorkOrderSelector;
 window.saveAssetForm = saveAssetForm;
 window.deleteAsset = deleteAsset;
-// BUG FIX: Expose modal closer used by inline HTML handlers
-window.closeWorkOrderSelector = UI.hideWorkOrderSelector;
+window.closeWorkOrderSelector = () => UI.hideWorkOrderSelector();
 
-// Defensive guard: block any form submit from triggering navigation (captures bubbled submits)
+// Block accidental form submissions causing page reload
 document.addEventListener(
   "submit",
   (e) => {
     e.preventDefault();
     e.stopPropagation();
-    console.debug("Submit blocked", e.target?.id || e.target);
   },
   true,
 );
@@ -21,7 +22,6 @@ document.addEventListener(
 const map = MapController.initMap();
 MapController.bindFeatureClick(handleFeatureClick);
 
-// BUG FIX: Guard against default form submission (avoid page reload on save)
 const assetFormEl = document.getElementById("asset-form");
 if (assetFormEl) {
   assetFormEl.addEventListener("submit", (e) => {
@@ -37,11 +37,22 @@ map.on("click", (e) => {
   }
 });
 
-// WORK ORDER FLOW
+// ──────────────────── Work Order Flow ────────────────────
+
 async function openWorkOrderSelector() {
   UI.showWorkOrderSelector();
   UI.setWorkOrderListLoading();
-  const workOrders = await API.fetchWorkOrders();
+
+  // Try fetching from server; fall back to local cache
+  let workOrders = [];
+  if (AppState.isServerReachable) {
+    workOrders = await API.fetchWorkOrders();
+  }
+  if (workOrders.length === 0) {
+    // Show locally cached work orders when offline
+    workOrders = await DB.getAllWorkOrders();
+  }
+
   UI.renderWorkOrderList(
     workOrders,
     AppState.currentWorkOrder?.id,
@@ -49,26 +60,66 @@ async function openWorkOrderSelector() {
   );
 }
 
+/**
+ * Download a work order + its existing assets, cache locally, and render.
+ */
 async function loadWorkOrder(woId) {
   try {
-    const workOrder = await API.fetchWorkOrder(woId);
+    let workOrder;
+    let existingAssets = [];
+
+    if (AppState.isServerReachable) {
+      // ONLINE: fetch from server and cache locally
+      workOrder = await API.fetchWorkOrder(woId);
+      existingAssets = await API.fetchWorkOrderAssets(woId);
+
+      // Cache work order
+      await DB.saveWorkOrder(workOrder);
+
+      // Tag each existing asset with the work_order_id and save locally
+      const tagged = existingAssets.map((a) => ({
+        ...a,
+        work_order_id: woId,
+        _source: "server", // so we know it came from the register
+      }));
+      await DB.saveAssets(tagged);
+    } else {
+      // OFFLINE: load from local cache
+      workOrder = await DB.getWorkOrder(woId);
+      if (!workOrder) {
+        alert("Work order not available offline.");
+        return;
+      }
+      existingAssets = await DB.getAssets(woId);
+    }
+
     AppState.currentWorkOrder = workOrder;
     MapController.setBounds(workOrder.bounds);
     MapController.renderJobPackLayers(workOrder);
+    await renderLocalAssets();
+
     UI.updateWorkOrderUI(workOrder);
     UI.hideWorkOrderSelector();
     UI.showToolsPanel();
-    console.log("Loaded work order:", workOrder.id);
+    await updateSyncBadge();
+
+    console.log(
+      "Loaded work order:",
+      workOrder.id,
+      `(${existingAssets.length} existing assets cached)`,
+    );
   } catch (error) {
     console.error("Error loading work order:", error);
     alert("Failed to load work order. Please try again.");
   }
 }
 
-// TOOLING AND ASSET CREATION
+// ──────────────────── Tool Activation ────────────────────
+
 function activateTool(toolName) {
   AppState.currentTool = toolName;
   AppState.cableStartNode = null;
+  AppState.editingAssetId = null;
   UI.setMapCursor("crosshair");
   if (toolName === "Cable") {
     alert(
@@ -90,12 +141,15 @@ function handleFeatureClick(e) {
   }
 }
 
+// ──────────────────── Asset Creation ────────────────────
+
 function createPointAsset(latlng, type) {
   AppState.pendingAssetGeometry = {
     type: "Point",
     coordinates: [latlng.lng, latlng.lat],
   };
   AppState.pendingAssetType = type;
+  AppState.editingAssetId = null;
   UI.openAssetModal(type);
 }
 
@@ -108,15 +162,15 @@ function createCableAsset(startLatLng, endLatLng) {
     ],
   };
   AppState.pendingAssetType = "Cable";
+  AppState.editingAssetId = null;
   UI.openAssetModal("Cable");
 }
 
-// FORM SUBMISSION
+// ──────────────────── Form Submission ────────────────────
+
 async function saveAssetForm(evt) {
-  // Keep the UI responsive by adding to the in-memory store only
-  if (evt && typeof evt.preventDefault === "function") {
-    evt.preventDefault();
-  }
+  if (evt && typeof evt.preventDefault === "function") evt.preventDefault();
+
   if (!AppState.pendingAssetGeometry || !AppState.pendingAssetType) {
     console.error("No pending asset to save");
     return false;
@@ -125,20 +179,40 @@ async function saveAssetForm(evt) {
   const form = document.getElementById("asset-form");
   const assetType = AppState.pendingAssetType;
   const properties = buildProperties(assetType, form);
+  const woId = AppState.currentWorkOrder?.id || null;
 
-  const newAsset = {
-    id: Date.now(),
+  const assetId = AppState.editingAssetId || `temp-${Date.now()}`;
+  const isUpdate = !!AppState.editingAssetId;
+
+  const asset = {
+    id: assetId,
     type: "Feature",
     properties,
     geometry: AppState.pendingAssetGeometry,
-    pending_sync: 1,
+    work_order_id: woId,
+    _source: "local",
   };
 
-  await DB.addAsset(newAsset); // in-memory
-  await MapController.loadAsBuilt();
+  // 1. Update local IndexedDB so the UI reflects the change immediately
+  await DB.putAsset(asset);
+
+  // 2. Queue the action for later sync
+  await DB.queueAction({
+    action: isUpdate ? "UPDATE" : "CREATE",
+    asset_id: assetId,
+    work_order_id: woId,
+    asset_type: assetType,
+    geometry: asset.geometry,
+    properties,
+  });
+
+  // 3. Refresh the map
+  await renderLocalAssets();
+  await updateSyncBadge();
+
   UI.setMapCursor("");
   UI.closeAssetModal();
-  console.log("Asset saved (local only):", newAsset.properties);
+  console.log(`Asset ${isUpdate ? "updated" : "created"} (local):`, assetId);
   return false;
 }
 
@@ -204,6 +278,7 @@ function buildProperties(assetType, form) {
     };
   }
 
+  // Default: Pole
   return {
     name: `New ${assetType}`,
     assetType,
@@ -224,68 +299,113 @@ function buildProperties(assetType, form) {
   };
 }
 
-// DELETE ASSET
+// ──────────────────── Delete Asset ────────────────────
+
 async function deleteAsset(assetId) {
-  await DB.deleteAsset(assetId);
-  await MapController.loadAsBuilt();
+  const woId = AppState.currentWorkOrder?.id || null;
+  const asset = await DB.getAsset(String(assetId));
+
+  // Queue the DELETE action
+  await DB.queueAction({
+    action: "DELETE",
+    asset_id: String(assetId),
+    work_order_id: woId,
+    asset_type:
+      asset?.properties?.assetType ||
+      asset?.properties?.asset_type ||
+      "Unknown",
+    geometry: asset?.geometry,
+    properties: asset?.properties,
+  });
+
+  // Remove from local cache
+  await DB.removeAsset(String(assetId));
+
+  // Refresh
+  await renderLocalAssets();
+  await updateSyncBadge();
   MapController.getMap()?.closePopup();
-  console.log(`Asset ${assetId} deleted.`);
+  console.log(`Asset ${assetId} deleted (queued for sync).`);
 }
 
-// SYNC LOGIC
-async function syncOfflineChanges() {
-  const unsynced = await DB.getUnsynced();
-  if (unsynced.length === 0) return;
+// ──────────────────── Sync Logic ────────────────────
 
-  console.log(`Syncing ${unsynced.length} items...`);
+async function syncOfflineChanges() {
+  const queue = await DB.getSyncQueue();
+  if (queue.length === 0) {
+    console.log("Nothing to sync.");
+    return;
+  }
+
+  console.log(`Syncing ${queue.length} queued actions...`);
   UI.updateStatus("checking");
 
   try {
-    await API.syncAssets(unsynced);
-    await DB.markSynced(unsynced.map((a) => a.id));
-    await MapController.loadAsBuilt();
+    const result = await API.sync(queue);
+    console.log("Sync result:", result);
+
+    // Clear the queue on success
+    await DB.clearSyncQueue();
+    await updateSyncBadge();
+
     UI.updateStatus("online");
+    console.log(`Sync complete: ${result.processed} actions processed.`);
   } catch (err) {
-    console.error("Sync failed", err);
+    console.error("Sync failed:", err);
     UI.updateStatus("offline");
   }
 }
 
-// CONNECTION HEALTH CHECK
-async function checkServerStatus() {
-  if (!AppState.isServerReachable) UI.updateStatus("checking");
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2000);
+// ──────────────────── Map Rendering ────────────────────
 
-  try {
-    const response = await fetch(`${AppConfig.API_BASE}/api/assets`, {
-      method: "HEAD",
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    if (response.ok) {
-      if (!AppState.isServerReachable) {
-        AppState.isServerReachable = true;
-        UI.updateStatus("online");
-        syncOfflineChanges();
-      }
-      return;
-    }
-  } catch (err) {
-    // fall through
-  }
-
-  AppState.isServerReachable = false;
-  UI.updateStatus("offline");
+async function renderLocalAssets() {
+  const woId = AppState.currentWorkOrder?.id;
+  const assets = woId ? await DB.getAssets(woId) : [];
+  MapController.renderLocalAssets(assets);
 }
 
-// INIT
+// ──────────────────── Sync Badge ────────────────────
+
+async function updateSyncBadge() {
+  const count = await DB.getSyncQueueCount();
+  AppState.pendingSyncCount = count;
+  UI.updateSyncBadge(count);
+}
+
+// ──────────────────── Connection Health Check ────────────────────
+
+async function checkServerStatus() {
+  const wasReachable = AppState.isServerReachable;
+  const isReachable = await API.healthCheck();
+
+  AppState.isServerReachable = isReachable;
+
+  if (isReachable) {
+    UI.updateStatus("online");
+    // Auto-sync when connection is restored
+    if (!wasReachable) {
+      console.log("Connection restored — auto-syncing...");
+      syncOfflineChanges();
+    }
+  } else {
+    UI.updateStatus("offline");
+  }
+}
+
+// ──────────────────── Init ────────────────────
+
 (async function init() {
+  // Check connectivity first
+  await checkServerStatus();
+  await updateSyncBadge();
   openWorkOrderSelector();
-  await MapController.loadAsBuilt();
+
+  // Periodic health check
   setInterval(checkServerStatus, 5000);
-  checkServerStatus();
 })();
 
 window.addEventListener("online", checkServerStatus);
-window.addEventListener("offline", () => UI.updateStatus("offline"));
+window.addEventListener("offline", () => {
+  AppState.isServerReachable = false;
+  UI.updateStatus("offline");
+});
