@@ -95,6 +95,13 @@ const DB = {
   async clearSyncQueue() {
     await idb.sync_queue.clear();
   },
+
+  /** Wipe all local data (work orders, assets, sync queue). */
+  async clearAll() {
+    await idb.local_work_orders.clear();
+    await idb.local_assets.clear();
+    await idb.sync_queue.clear();
+  },
 };
 
 // Expose globally

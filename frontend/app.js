@@ -8,6 +8,8 @@ window.openWorkOrderSelector = openWorkOrderSelector;
 window.saveAssetForm = saveAssetForm;
 window.deleteAsset = deleteAsset;
 window.acceptDesignAsset = acceptDesignAsset;
+window.cancelCableDrawing = cancelCableDrawing;
+window.clearLocalData = clearLocalData;
 window.closeWorkOrderSelector = () => UI.hideWorkOrderSelector();
 
 // Block accidental form submissions causing page reload
@@ -124,22 +126,26 @@ function activateTool(toolName) {
   AppState.currentTool = toolName;
   AppState.cableStartNode = null;
   AppState.editingAssetId = null;
+  AppState.pendingCableProperties = null;
   UI.setMapCursor("crosshair");
+
   if (toolName === "Cable") {
-    alert(
-      "Cable Tool Active:\n1. Click the first Pole.\n2. Click the second Pole to connect them.",
-    );
+    // Form-first: fill in cable details before drawing
+    AppState.pendingAssetType = "Cable";
+    UI.openAssetModal("Cable");
+    UI.setMapCursor("");
   }
 }
 
 function handleFeatureClick(e) {
-  if (AppState.currentTool !== "Cable") return;
+  if (AppState.currentTool !== "Cable" || !AppState.pendingCableProperties)
+    return;
   const latlng = e.latlng;
   if (!AppState.cableStartNode) {
     AppState.cableStartNode = latlng;
     UI.showStartPointPopup(latlng);
   } else {
-    createCableAsset(AppState.cableStartNode, latlng);
+    saveCableFromDrawing(AppState.cableStartNode, latlng);
     AppState.cableStartNode = null;
     UI.clearPopup();
   }
@@ -157,17 +163,60 @@ function createPointAsset(latlng, type) {
   UI.openAssetModal(type);
 }
 
-function createCableAsset(startLatLng, endLatLng) {
-  AppState.pendingAssetGeometry = {
+/**
+ * Called after two map clicks to finalise a cable whose properties
+ * were already captured by the form-first modal.
+ */
+async function saveCableFromDrawing(startLatLng, endLatLng) {
+  const geometry = {
     type: "LineString",
     coordinates: [
       [startLatLng.lng, startLatLng.lat],
       [endLatLng.lng, endLatLng.lat],
     ],
   };
-  AppState.pendingAssetType = "Cable";
-  AppState.editingAssetId = null;
-  UI.openAssetModal("Cable");
+  const properties = AppState.pendingCableProperties;
+  const woId = AppState.currentWorkOrder?.id || null;
+  const assetId = `temp-${Date.now()}`;
+
+  const asset = {
+    id: assetId,
+    type: "Feature",
+    properties,
+    geometry,
+    work_order_id: woId,
+    _source: "local",
+  };
+
+  await DB.putAsset(asset);
+  await DB.queueAction({
+    action: "CREATE",
+    asset_id: assetId,
+    work_order_id: woId,
+    asset_type: "Cable",
+    geometry,
+    properties,
+  });
+
+  await renderLocalAssets();
+  await updateSyncBadge();
+
+  // Reset cable drawing state
+  AppState.pendingCableProperties = null;
+  AppState.currentTool = null;
+  UI.setMapCursor("");
+  UI.hideCableDrawingBanner();
+  console.log(`Cable created (local): ${assetId}`);
+}
+
+function cancelCableDrawing() {
+  AppState.pendingCableProperties = null;
+  AppState.cableStartNode = null;
+  AppState.currentTool = null;
+  UI.setMapCursor("");
+  UI.hideCableDrawingBanner();
+  UI.clearPopup();
+  console.log("Cable drawing cancelled.");
 }
 
 // ──────────────────── Form Submission ────────────────────
@@ -175,13 +224,30 @@ function createCableAsset(startLatLng, endLatLng) {
 async function saveAssetForm(evt) {
   if (evt && typeof evt.preventDefault === "function") evt.preventDefault();
 
-  if (!AppState.pendingAssetGeometry || !AppState.pendingAssetType) {
-    console.error("No pending asset to save");
+  const form = document.getElementById("asset-form");
+  const assetType = AppState.pendingAssetType;
+
+  if (!assetType) {
+    console.error("No pending asset type to save");
     return false;
   }
 
-  const form = document.getElementById("asset-form");
-  const assetType = AppState.pendingAssetType;
+  // ── Cable form-first: save properties now, then enter drawing mode ──
+  if (assetType === "Cable" && !AppState.pendingAssetGeometry) {
+    AppState.pendingCableProperties = buildProperties("Cable", form);
+    UI.closeAssetModal();
+    UI.setMapCursor("crosshair");
+    UI.showCableDrawingBanner();
+    console.log("Cable properties saved — click two assets to draw the cable.");
+    return false;
+  }
+
+  // ── Standard point asset save (Pole / Transformer) ──
+  if (!AppState.pendingAssetGeometry) {
+    console.error("No pending asset geometry to save");
+    return false;
+  }
+
   const properties = buildProperties(assetType, form);
   const woId = AppState.currentWorkOrder?.id || null;
 
@@ -407,6 +473,28 @@ async function acceptDesignAsset(designId) {
 
   MapController.getMap()?.closePopup();
   console.log(`Design '${designId}' accepted as as-built asset.`);
+}
+
+// ──────────────────── Clear Local Data ────────────────────
+
+async function clearLocalData() {
+  if (
+    !confirm(
+      "Clear all local data?\nThis removes cached work orders, assets, and unsynced changes from this browser.",
+    )
+  ) {
+    return;
+  }
+  await DB.clearAll();
+  AppState.currentWorkOrder = null;
+  AppState.currentTool = null;
+  AppState.cableStartNode = null;
+  AppState.pendingCableProperties = null;
+  MapController.renderLocalAssets([]);
+  await updateSyncBadge();
+  console.log("Local data cleared.");
+  // Reload to reset UI to initial state
+  location.reload();
 }
 
 // ──────────────────── Sync Logic ────────────────────
