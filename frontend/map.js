@@ -135,7 +135,7 @@ const MapController = (() => {
     featureClickHandler = handler;
   };
 
-  const renderSingleRedMarker = (feature) => {
+  const renderSingleAsBuiltMarker = (feature) => {
     if (!map) return;
 
     const isTransformer =
@@ -156,7 +156,7 @@ const MapController = (() => {
               className: "asbuilt-transformer",
               iconSize: [16, 16],
               iconAnchor: [8, 8],
-              html: `<div style="width:16px;height:16px;background:#e74c3c;border:2px solid #c0392b;border-radius:2px;${pending ? "opacity:0.6;border-style:dashed;" : ""}"></div>`,
+              html: `<div style="width:16px;height:16px;background:#2980b9;border:2px solid #2471a3;border-radius:2px;${pending ? "opacity:0.6;border-style:dashed;" : ""}"></div>`,
             }),
           },
         )
@@ -164,8 +164,8 @@ const MapController = (() => {
           [feature.geometry.coordinates[1], feature.geometry.coordinates[0]],
           {
             radius: 7,
-            fillColor: "#e74c3c",
-            color: "#c0392b",
+            fillColor: "#2980b9",
+            color: "#2471a3",
             weight: 2,
             fillOpacity: 1,
           },
@@ -298,7 +298,7 @@ const MapController = (() => {
     marker.addTo(map);
   };
 
-  const renderSingleRedLine = (feature) => {
+  const renderSingleAsBuiltLine = (feature) => {
     if (!map) return;
     const latlngs = feature.geometry.coordinates.map((coord) => [
       coord[1],
@@ -306,7 +306,7 @@ const MapController = (() => {
     ]);
 
     const polyline = L.polyline(latlngs, {
-      color: "#e74c3c",
+      color: "#2980b9",
       weight: 4,
       opacity: 0.8,
     });
@@ -396,13 +396,13 @@ const MapController = (() => {
     polyline.addTo(map);
   };
 
-  const clearRedLayers = () => {
+  const clearAsBuiltLayers = () => {
     if (!map) return;
     map.eachLayer((layer) => {
       if (
         (layer instanceof L.CircleMarker &&
-          layer.options.fillColor === "#e74c3c") ||
-        (layer instanceof L.Polyline && layer.options.color === "#e74c3c")
+          layer.options.fillColor === "#2980b9") ||
+        (layer instanceof L.Polyline && layer.options.color === "#2980b9")
       ) {
         map.removeLayer(layer);
       }
@@ -414,12 +414,12 @@ const MapController = (() => {
    * Called by app.js with the current work order's cached assets.
    */
   const renderLocalAssets = (assets) => {
-    clearRedLayers();
+    clearAsBuiltLayers();
     if (!assets || !assets.length) return;
     assets.forEach((f) => {
       if (!f.geometry) return;
-      if (f.geometry.type === "Point") renderSingleRedMarker(f);
-      if (f.geometry.type === "LineString") renderSingleRedLine(f);
+      if (f.geometry.type === "Point") renderSingleAsBuiltMarker(f);
+      if (f.geometry.type === "LineString") renderSingleAsBuiltLine(f);
     });
   };
 
