@@ -16,6 +16,9 @@ const AppState = {
   // Cable creation: first click stores start node
   cableStartNode: null,
 
+  // Cable form-first: stores properties after form submit, before drawing
+  pendingCableProperties: null,
+
   // Pending asset data while the form modal is open
   pendingAssetGeometry: null,
   pendingAssetType: null,

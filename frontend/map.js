@@ -210,6 +210,17 @@ const MapController = (() => {
 
     if (featureClickHandler) {
       marker.on("click", (e) => {
+        // When drawing a cable, suppress the asset popup and only register
+        // the click as a cable endpoint.
+        if (
+          AppState.currentTool === "Cable" &&
+          AppState.pendingCableProperties
+        ) {
+          marker.closePopup();
+          featureClickHandler(e);
+          L.DomEvent.stopPropagation(e);
+          return;
+        }
         featureClickHandler(e);
         L.DomEvent.stopPropagation(e);
       });

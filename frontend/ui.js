@@ -119,6 +119,12 @@ const UI = (() => {
 
   const closeAssetModal = () => {
     document.getElementById("asset-modal").classList.remove("active");
+
+    // If the cable form was closed without saving, cancel cable mode
+    if (AppState.currentTool === "Cable" && !AppState.pendingCableProperties) {
+      AppState.currentTool = null;
+    }
+
     AppState.pendingAssetGeometry = null;
     AppState.pendingAssetType = null;
     AppState.pendingPhotoBase64 = null;
@@ -239,6 +245,33 @@ const UI = (() => {
       .openOn(MapController.getMap());
   };
 
+  const showCableDrawingBanner = () => {
+    // Remove any existing banner first
+    hideCableDrawingBanner();
+    const banner = document.createElement("div");
+    banner.id = "cable-drawing-banner";
+    banner.innerHTML = `
+      <span>🔌 <b>Cable drawing active</b> — click the first asset, then the second to connect them.</span>
+      <button onclick="cancelCableDrawing()">✕ Cancel</button>
+    `;
+    banner.style.cssText = `
+      position:fixed; top:0; left:0; right:0; z-index:2000;
+      background:#1a252f; color:#ecf0f1; padding:10px 16px;
+      display:flex; justify-content:space-between; align-items:center;
+      font-size:14px; box-shadow:0 2px 8px rgba(0,0,0,0.3);
+    `;
+    banner.querySelector("button").style.cssText = `
+      background:none; border:1px solid #95a5a6; color:#ecf0f1;
+      padding:4px 12px; border-radius:4px; cursor:pointer; font-size:13px;
+    `;
+    document.body.appendChild(banner);
+  };
+
+  const hideCableDrawingBanner = () => {
+    const existing = document.getElementById("cable-drawing-banner");
+    if (existing) existing.remove();
+  };
+
   const clearPopup = () => {
     MapController.getMap()?.closePopup();
   };
@@ -277,6 +310,8 @@ const UI = (() => {
     initPhotoCapture,
     clearPhotoPreview,
     showStartPointPopup,
+    showCableDrawingBanner,
+    hideCableDrawingBanner,
     clearPopup,
   };
 })();
