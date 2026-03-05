@@ -21,15 +21,15 @@ The application allows field engineers to:
 
 The original implementation (Phases 1–3b) suffered from several fundamental issues that would have made it unreliable and unmaintainable as the project scaled:
 
-| Problem | Detail |
-| --- | --- |
-| **Flat-file database** | The backend stored the entire asset register in a single `database.geojson` file. Every sync overwrote the file wholesale — no atomicity, no concurrency safety, and no audit trail. |
-| **State-diffing synchronisation** | The frontend attempted to reconcile local and remote state by diffing two full GeoJSON `FeatureCollection` objects. This was brittle: field ordering, floating-point drift in coordinates, and missing properties all caused false positives or silent data loss. |
-| **No true persistence layer** | The backend had a `models.py` with SQLAlchemy models that were never wired up. The actual data path bypassed the ORM entirely and read/wrote raw JSON, meaning there was no schema enforcement, no migrations path, and no relational integrity. |
-| **Monolithic frontend** | A single 900+ line `app.js` handled map rendering, drawing tools, form logic, offline caching, and sync. This made the code difficult to test, debug, or extend. |
-| **Fragile offline behaviour** | Although Dexie.js was imported, the caching logic only stored a snapshot of the last server response. Edits were flagged with a `pending_sync: true` boolean, but there was no ordered queue — if the user made five changes offline, the sync had no reliable way to replay them in sequence. |
-| **No Service Worker** | Without a Service Worker, the application could not load at all when the device was offline. Map tiles, stylesheets, and scripts all required a live network connection. |
-| **No audit trail** | There was no record of what changed, when, or by whom. Once data was synced and the GeoJSON file was overwritten, the previous state was gone. |
+| Problem                           | Detail                                                                                                                                                                                                                                                                                         |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Flat-file database**            | The backend stored the entire asset register in a single `database.geojson` file. Every sync overwrote the file wholesale — no atomicity, no concurrency safety, and no audit trail.                                                                                                           |
+| **State-diffing synchronisation** | The frontend attempted to reconcile local and remote state by diffing two full GeoJSON `FeatureCollection` objects. This was brittle: field ordering, floating-point drift in coordinates, and missing properties all caused false positives or silent data loss.                              |
+| **No true persistence layer**     | The backend had a `models.py` with SQLAlchemy models that were never wired up. The actual data path bypassed the ORM entirely and read/wrote raw JSON, meaning there was no schema enforcement, no migrations path, and no relational integrity.                                               |
+| **Monolithic frontend**           | A single 900+ line `app.js` handled map rendering, drawing tools, form logic, offline caching, and sync. This made the code difficult to test, debug, or extend.                                                                                                                               |
+| **Fragile offline behaviour**     | Although Dexie.js was imported, the caching logic only stored a snapshot of the last server response. Edits were flagged with a `pending_sync: true` boolean, but there was no ordered queue — if the user made five changes offline, the sync had no reliable way to replay them in sequence. |
+| **No Service Worker**             | Without a Service Worker, the application could not load at all when the device was offline. Map tiles, stylesheets, and scripts all required a live network connection.                                                                                                                       |
+| **No audit trail**                | There was no record of what changed, when, or by whom. Once data was synced and the GeoJSON file was overwritten, the previous state was gone.                                                                                                                                                 |
 
 ### Design Rationale for the New Architecture
 
@@ -47,13 +47,13 @@ The rewrite addresses every issue above by introducing three core changes:
 
 ### System Layers
 
-| Layer | Technology | Purpose |
-| --- | --- | --- |
-| **Service Worker** | sw.js (Cache API) | Pre-caches static assets; stale-while-revalidate for map tiles; enables full offline loading |
-| **Map** | Leaflet.js 1.9.4 + Leaflet.Draw 1.0.4 | Interactive mapping with point/polyline draw tools |
-| **Local Storage** | IndexedDB via Dexie.js 4.0.11 | Three object stores: work orders, assets, and a sync queue |
-| **API Layer** | Fetch API (api.js) | Thin wrapper around REST calls with timeout/abort handling |
-| **Backend** | Python Flask 3.1 + SQLAlchemy + SQLite | RESTful API, relational asset register, audit log |
+| Layer              | Technology                             | Purpose                                                                                      |
+| ------------------ | -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Service Worker** | sw.js (Cache API)                      | Pre-caches static assets; stale-while-revalidate for map tiles; enables full offline loading |
+| **Map**            | Leaflet.js 1.9.4 + Leaflet.Draw 1.0.4  | Interactive mapping with point/polyline draw tools                                           |
+| **Local Storage**  | IndexedDB via Dexie.js 4.0.11          | Three object stores: work orders, assets, and a sync queue                                   |
+| **API Layer**      | Fetch API (api.js)                     | Thin wrapper around REST calls with timeout/abort handling                                   |
+| **Backend**        | Python Flask 3.1 + SQLAlchemy + SQLite | RESTful API, relational asset register, audit log                                            |
 
 ### Data Flow
 
@@ -107,7 +107,7 @@ The application follows a clear three-step workflow that maps directly to how a 
 2. `app.js` calls `API.fetchWorkOrder(id)` to retrieve the work order and `API.fetchWorkOrderAssets(id)` to retrieve existing assets within the work order's geographic bounding box.
 3. Both responses are written into IndexedDB (`local_work_orders` and `local_assets` stores).
 4. If the server is unreachable, the application falls back to whatever is already cached in IndexedDB — the engineer can continue working with stale data.
-5. Design assets (from the work order) are rendered on the map in **grey dashed** style. Existing as-built assets are rendered in **red solid** style.
+5. Design assets (from the work order) are rendered on the map in **grey dashed** style. Existing as-built assets are rendered in **blue solid** style.
 
 #### Step B — Data Capture (Work Offline)
 
@@ -142,16 +142,16 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 ## Technologies
 
-| Component | Technology | Version / Source |
-| --- | --- | --- |
-| Map rendering | Leaflet.js | 1.9.4 — unpkg CDN |
-| Draw controls | Leaflet.Draw | 1.0.4 — unpkg CDN |
-| Offline storage | Dexie.js | 4.0.11 — unpkg CDN |
-| Backend API | Flask + Flask-CORS | 3.1 — pip (requirements.txt) |
-| ORM | Flask-SQLAlchemy | pip (requirements.txt) |
-| Database | SQLite | Built-in (Python stdlib) |
-| PWA support | Service Worker + manifest.json | Native browser APIs |
-| Styling | Custom CSS | styles.css |
+| Component       | Technology                     | Version / Source             |
+| --------------- | ------------------------------ | ---------------------------- |
+| Map rendering   | Leaflet.js                     | 1.9.4 — unpkg CDN            |
+| Draw controls   | Leaflet.Draw                   | 1.0.4 — unpkg CDN            |
+| Offline storage | Dexie.js                       | 4.0.11 — unpkg CDN           |
+| Backend API     | Flask + Flask-CORS             | 3.1 — pip (requirements.txt) |
+| ORM             | Flask-SQLAlchemy               | pip (requirements.txt)       |
+| Database        | SQLite                         | Built-in (Python stdlib)     |
+| PWA support     | Service Worker + manifest.json | Native browser APIs          |
+| Styling         | Custom CSS                     | styles.css                   |
 
 ---
 
@@ -185,29 +185,29 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 ### Frontend Module Responsibilities
 
-| Module | Responsibility |
-| --- | --- |
-| **app.js** | Top-level orchestrator. Wires together all other modules. Implements the three-step workflow, auto-sync timer, and sync badge updates. |
-| **db.js** | All IndexedDB access via Dexie.js. Exposes CRUD methods for work orders, assets, and sync queue entries. No business logic. |
-| **api.js** | All HTTP communication. Exposes `fetchWorkOrders`, `fetchWorkOrder`, `fetchWorkOrderAssets`, `sync`, and `healthCheck`. Returns parsed JSON or throws. |
-| **state.js** | Shared configuration (`API_BASE`) and mutable application state (`currentWorkOrder`, `currentTool`, `isServerReachable`, `pendingSyncCount`). |
-| **map.js** | Leaflet map initialisation, tile layer, draw controls, design/as-built layer rendering. Exports `MapController` with methods like `renderDesignAssets`, `renderLocalAssets`, `clearLayers`. |
-| **ui.js** | DOM manipulation for the sidebar, toolbar, modal, work order list, and sync badge. No data logic. |
-| **forms.js** | Pure HTML template functions for each asset type. Returns markup strings consumed by `ui.js` and `app.js`. |
-| **sw.js** | Service Worker. Pre-caches the static shell on install. Intercepts fetch requests: cache-first for static files, stale-while-revalidate for OpenStreetMap tiles, network-only for `/api/` calls. |
+| Module       | Responsibility                                                                                                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **app.js**   | Top-level orchestrator. Wires together all other modules. Implements the three-step workflow, auto-sync timer, and sync badge updates.                                                           |
+| **db.js**    | All IndexedDB access via Dexie.js. Exposes CRUD methods for work orders, assets, and sync queue entries. No business logic.                                                                      |
+| **api.js**   | All HTTP communication. Exposes `fetchWorkOrders`, `fetchWorkOrder`, `fetchWorkOrderAssets`, `sync`, and `healthCheck`. Returns parsed JSON or throws.                                           |
+| **state.js** | Shared configuration (`API_BASE`) and mutable application state (`currentWorkOrder`, `currentTool`, `isServerReachable`, `pendingSyncCount`).                                                    |
+| **map.js**   | Leaflet map initialisation, tile layer, draw controls, design/as-built layer rendering. Exports `MapController` with methods like `renderDesignAssets`, `renderLocalAssets`, `clearLayers`.      |
+| **ui.js**    | DOM manipulation for the sidebar, toolbar, modal, work order list, and sync badge. No data logic.                                                                                                |
+| **forms.js** | Pure HTML template functions for each asset type. Returns markup strings consumed by `ui.js` and `app.js`.                                                                                       |
+| **sw.js**    | Service Worker. Pre-caches the static shell on install. Intercepts fetch requests: cache-first for static files, stale-while-revalidate for OpenStreetMap tiles, network-only for `/api/` calls. |
 
 ---
 
 ## API Endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `GET` | `/api/health` | Returns `{ "status": "ok" }` — used by the frontend health-check timer |
-| `GET` | `/api/workorders` | Returns all work orders as a JSON array (id, area, status, summary) |
-| `GET` | `/api/workorders/<id>` | Returns a single work order including its `design_assets` GeoJSON |
-| `GET` | `/api/workorders/<id>/assets` | Returns existing as-built assets filtered to the work order's geographic bounding box |
-| `POST` | `/api/sync` | Accepts `{ "actions": [...] }` — processes each action (CREATE / UPDATE / DELETE) sequentially and writes audit log entries |
-| `GET` | `/api/audit` | Returns the full audit log (most recent first) |
+| Method | Path                          | Description                                                                                                                 |
+| ------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/health`                 | Returns `{ "status": "ok" }` — used by the frontend health-check timer                                                      |
+| `GET`  | `/api/workorders`             | Returns all work orders as a JSON array (id, area, status, summary)                                                         |
+| `GET`  | `/api/workorders/<id>`        | Returns a single work order including its `design_assets` GeoJSON                                                           |
+| `GET`  | `/api/workorders/<id>/assets` | Returns existing as-built assets filtered to the work order's geographic bounding box                                       |
+| `POST` | `/api/sync`                   | Accepts `{ "actions": [...] }` — processes each action (CREATE / UPDATE / DELETE) sequentially and writes audit log entries |
+| `GET`  | `/api/audit`                  | Returns the full audit log (most recent first)                                                                              |
 
 ### Sync Payload Format
 
@@ -218,7 +218,7 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
       "action": "CREATE",
       "asset_id": "WR-2025-9901-1748302841649",
       "work_order_id": "WR-2025-9901",
-      "geometry": { "type": "Point", "coordinates": [-1.558, 53.810] },
+      "geometry": { "type": "Point", "coordinates": [-1.558, 53.81] },
       "properties": { "asset_type": "Pole", "material": "Wood" }
     },
     {
@@ -243,42 +243,42 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 **work_orders**
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| id | TEXT (PK) | e.g. `WR-2025-9901` |
-| area | TEXT | Geographic area name |
-| status | TEXT | `open` / `in_progress` / `complete` |
-| bounds | JSON | `[south, west, north, east]` bounding box |
-| design_assets | JSON | GeoJSON `FeatureCollection` of planned assets |
+| Column        | Type      | Notes                                         |
+| ------------- | --------- | --------------------------------------------- |
+| id            | TEXT (PK) | e.g. `WR-2025-9901`                           |
+| area          | TEXT      | Geographic area name                          |
+| status        | TEXT      | `open` / `in_progress` / `complete`           |
+| bounds        | JSON      | `[south, west, north, east]` bounding box     |
+| design_assets | JSON      | GeoJSON `FeatureCollection` of planned assets |
 
 **assets**
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| id | TEXT (PK) | e.g. `ASSET-001` or `WR-2025-9901-<timestamp>` |
-| work_order_id | TEXT | Foreign key to `work_orders.id` (nullable for seed assets) |
-| geometry | JSON | GeoJSON geometry object |
-| properties | JSON | All captured attributes |
-| created_at | DATETIME | UTC timestamp |
-| updated_at | DATETIME | UTC timestamp |
+| Column        | Type      | Notes                                                      |
+| ------------- | --------- | ---------------------------------------------------------- |
+| id            | TEXT (PK) | e.g. `ASSET-001` or `WR-2025-9901-<timestamp>`             |
+| work_order_id | TEXT      | Foreign key to `work_orders.id` (nullable for seed assets) |
+| geometry      | JSON      | GeoJSON geometry object                                    |
+| properties    | JSON      | All captured attributes                                    |
+| created_at    | DATETIME  | UTC timestamp                                              |
+| updated_at    | DATETIME  | UTC timestamp                                              |
 
 **audit_log**
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| id | INTEGER (PK) | Auto-increment |
-| asset_id | TEXT | The asset that was affected |
-| action | TEXT | `CREATE` / `UPDATE` / `DELETE` |
-| payload | JSON | Snapshot of the data at time of action |
-| timestamp | DATETIME | UTC timestamp |
+| Column    | Type         | Notes                                  |
+| --------- | ------------ | -------------------------------------- |
+| id        | INTEGER (PK) | Auto-increment                         |
+| asset_id  | TEXT         | The asset that was affected            |
+| action    | TEXT         | `CREATE` / `UPDATE` / `DELETE`         |
+| payload   | JSON         | Snapshot of the data at time of action |
+| timestamp | DATETIME     | UTC timestamp                          |
 
 ### IndexedDB Stores (Frontend)
 
-| Store | Key | Indexes | Purpose |
-| --- | --- | --- | --- |
-| `local_work_orders` | `id` | — | Cached work order data for offline access |
-| `local_assets` | `id` | `work_order_id` | Cached + locally-created assets |
-| `sync_queue` | `++id` (auto) | — | Ordered action log awaiting synchronisation |
+| Store               | Key           | Indexes         | Purpose                                     |
+| ------------------- | ------------- | --------------- | ------------------------------------------- |
+| `local_work_orders` | `id`          | —               | Cached work order data for offline access   |
+| `local_assets`      | `id`          | `work_order_id` | Cached + locally-created assets             |
+| `sync_queue`        | `++id` (auto) | —               | Ordered action log awaiting synchronisation |
 
 ---
 
@@ -286,11 +286,11 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 ### Service Worker Caching Strategy
 
-| Request Type | Strategy | Rationale |
-| --- | --- | --- |
-| Static assets (HTML, CSS, JS) | **Cache-first** — serve from cache, fall back to network | Ensures the application shell loads instantly, even offline |
-| Map tiles (OpenStreetMap) | **Stale-while-revalidate** — serve cached tile immediately, fetch fresh copy in background | Map tiles change infrequently; this provides fast rendering whilst keeping tiles reasonably current |
-| API calls (`/api/*`) | **Network-only** — never cached by the Service Worker | API responses are handled by the application layer (IndexedDB), not the Service Worker |
+| Request Type                  | Strategy                                                                                   | Rationale                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Static assets (HTML, CSS, JS) | **Cache-first** — serve from cache, fall back to network                                   | Ensures the application shell loads instantly, even offline                                         |
+| Map tiles (OpenStreetMap)     | **Stale-while-revalidate** — serve cached tile immediately, fetch fresh copy in background | Map tiles change infrequently; this provides fast rendering whilst keeping tiles reasonably current |
+| API calls (`/api/*`)          | **Network-only** — never cached by the Service Worker                                      | API responses are handled by the application layer (IndexedDB), not the Service Worker              |
 
 ### What Happens When the Device Goes Offline
 
@@ -306,11 +306,11 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 Each asset type has a dedicated form with fields aligned to CNAIM (Common Network Asset Indices Methodology) standards:
 
-| Asset | Form Sections |
-| --- | --- |
-| **Pole** | Core Specification (Material, Treatment, Stoutness, Height, Transformers), Inspection/Condition (Top Rot, External Rot, Bird Damage, Verticality, Steel Corrosion, Sound Test) |
+| Asset           | Form Sections                                                                                                                                                                                                                                                                                                                          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pole**        | Core Specification (Material, Treatment, Stoutness, Height, Transformers), Inspection/Condition (Top Rot, External Rot, Bird Damage, Verticality, Steel Corrosion, Sound Test)                                                                                                                                                         |
 | **Transformer** | Core Specification (Mounting Type PMT/GMT, Rating, Manufacturer, Serial, Year, Cooling Medium, Breather), Inspection/Condition (Tank Grade 1–5, Tank Issues, Fins Grade, Bushings, Silica Gel, Oil Level), Advanced Data GMT-only (Oil Acidity, Moisture, Breakdown Strength), Consequence of Failure (Bunding, Watercourse Proximity) |
-| **Cable** | Core Specification (Voltage Level, Cable Type, Conductor Material, CSA, Cores, Installation Year), Loading & Environment (Duty Factor, Situation, Topography), Condition Assessment (Sheath Condition, Joint Condition, Joints Count, Historical Faults, Known Issues) |
+| **Cable**       | Core Specification (Voltage Level, Cable Type, Conductor Material, CSA, Cores, Installation Year), Loading & Environment (Duty Factor, Situation, Topography), Condition Assessment (Sheath Condition, Joint Condition, Joints Count, Historical Faults, Known Issues)                                                                 |
 
 ### Form UI Components
 
@@ -373,11 +373,11 @@ This executes 11 integration tests covering Dexie connectivity, sync queue opera
 
 ### Work Orders (work_orders.json)
 
-| ID | Area | Design Assets |
-| --- | --- | --- |
-| WR-2026-0401 | Woodhouse Moor New LV Feeder | 6 proposed assets (3 poles, 1 PMT, 2 ABC cable sections) |
-| WR-2026-0402 | Hyde Park 11kV Circuit Extension | 9 proposed assets (4 poles, 1 GMT, 4 cable sections) |
-| WR-2026-0403 | Headingley New Customer Feeder | 6 proposed assets (2 poles, 1 GMT, 3 cable sections) |
+| ID           | Area                             | Design Assets                                            |
+| ------------ | -------------------------------- | -------------------------------------------------------- |
+| WR-2026-0401 | Woodhouse Moor New LV Feeder     | 6 proposed assets (3 poles, 1 PMT, 2 ABC cable sections) |
+| WR-2026-0402 | Hyde Park 11kV Circuit Extension | 9 proposed assets (4 poles, 1 GMT, 4 cable sections)     |
+| WR-2026-0403 | Headingley New Customer Feeder   | 6 proposed assets (2 poles, 1 GMT, 3 cable sections)     |
 
 ### Existing Assets (database.geojson)
 
@@ -387,27 +387,85 @@ This executes 11 integration tests covering Dexie connectivity, sync queue opera
 
 ## Development Phases
 
-| Phase | Focus | Status |
-| --- | --- | --- |
-| 1 | Interactive map with Leaflet.js | Complete |
-| 2 | Drawing tools (poles, transformers, cables) | Complete |
-| 3a | Dynamic CNAIM data forms and frontend refactoring | Complete |
-| 3b | IndexedDB caching with Dexie.js | Complete |
-| 4 | Architecture rewrite — Action Queue, relational backend, modular frontend | Complete |
-| 5 | Service Worker, PWA manifest, full offline support | Complete |
-| 6 | Backend and frontend test suites | Complete |
-| 7 | Final documentation | Complete |
+| Phase | Focus                                                                     | Status   |
+| ----- | ------------------------------------------------------------------------- | -------- |
+| 1     | Interactive map with Leaflet.js                                           | Complete |
+| 2     | Drawing tools (poles, transformers, cables)                               | Complete |
+| 3a    | Dynamic CNAIM data forms and frontend refactoring                         | Complete |
+| 3b    | IndexedDB caching with Dexie.js                                           | Complete |
+| 4     | Architecture rewrite — Action Queue, relational backend, modular frontend | Complete |
+| 5     | Service Worker, PWA manifest, full offline support                        | Complete |
+| 6     | Backend and frontend test suites                                          | Complete |
+| 7     | Final documentation                                                       | Complete |
 
 ---
 
 ## Glossary
 
-| Term | Definition |
-| --- | --- |
-| **Action Queue** | An ordered list of discrete operations (CREATE, UPDATE, DELETE) stored in IndexedDB and replayed on the server during synchronisation. Also known as a transaction log or event log. |
-| **As-built** | An asset that physically exists on site, as opposed to a design asset which only exists on paper. |
-| **CNAIM** | Common Network Asset Indices Methodology — the UK standard for condition-based risk assessment of electricity distribution assets. |
-| **Design asset** | A planned asset from the work order that has not yet been constructed. Rendered on the map in grey dashed style. |
-| **Last-writer-wins** | A conflict resolution strategy where the most recent write overwrites any previous value. Simple but effective for single-user field capture. |
-| **Stale-while-revalidate** | A caching strategy where the cached version is served immediately whilst a fresh copy is fetched in the background for next time. |
-| **Work order** | A job pack issued to a field engineer, containing a geographic area and a set of design assets to be surveyed or constructed. |
+| Term                       | Definition                                                                                                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Action Queue**           | An ordered list of discrete operations (CREATE, UPDATE, DELETE) stored in IndexedDB and replayed on the server during synchronisation. Also known as a transaction log or event log. |
+| **As-built**               | An asset that physically exists on site, as opposed to a design asset which only exists on paper.                                                                                    |
+| **CNAIM**                  | Common Network Asset Indices Methodology — the UK standard for condition-based risk assessment of electricity distribution assets.                                                   |
+| **Design asset**           | A planned asset from the work order that has not yet been constructed. Rendered on the map in grey dashed style.                                                                     |
+| **Last-writer-wins**       | A conflict resolution strategy where the most recent write overwrites any previous value. Simple but effective for single-user field capture.                                        |
+| **Stale-while-revalidate** | A caching strategy where the cached version is served immediately whilst a fresh copy is fetched in the background for next time.                                                    |
+| **Work order**             | A job pack issued to a field engineer, containing a geographic area and a set of design assets to be surveyed or constructed.                                                        |
+
+---
+
+## Recent Changes
+
+### Blackline Acceptance
+
+Engineers can now accept proposed (blackline) design assets directly from the map. Clicking a design asset's popup reveals an **Accept Design** button which converts it into an as-built asset, removes it from the design layer, and queues an `ACCEPT` sync action. The backend updates the work order's `design_assets` JSON to mark the item as accepted, preventing it from reappearing.
+
+### Asset Colour Differentiation
+
+Map markers now use two distinct colour schemes to distinguish asset categories at a glance:
+
+| Category             | Colour | Description                                        |
+| -------------------- | ------ | -------------------------------------------------- |
+| **Existing assets**  | Blue (#2980b9) | Assets already in the server register        |
+| **Built-as-laid**    | Red (#e74c3c)  | Newly captured or accepted assets (unsynced) |
+
+### Activity Monitoring (Admin Dashboard)
+
+A live activity dashboard is available at `/admin` for verifying database changes during testing:
+
+- **Console logging** — every sync request is logged to the terminal with structured per-action detail (action type, asset ID, asset type, work order).
+- **`/api/activity` endpoint** — returns current database statistics (active assets, decommissioned, work orders, audit entries) plus the 50 most recent audit log entries.
+- **Admin dashboard** (`/admin`) — a dark-themed live page that polls `/api/activity` every two seconds, displaying stats cards and a scrollable activity table with colour-coded action badges. New rows are highlighted with a green animation.
+
+### Database Reset (Version Control)
+
+The database can be rolled back to its default seed state at any time:
+
+```bash
+# Reset the server database (drops all tables, re-seeds from JSON/GeoJSON)
+python3 backend/app.py --reset
+
+# Or use the convenience script which resets and starts the server:
+./run.sh
+```
+
+A **Clear Local Data** button in the sidebar's Actions panel wipes the browser's IndexedDB cache (work orders, assets, and unsynced changes), ensuring the frontend matches the freshly reset backend.
+
+### Cable Drawing Workflow
+
+The cable tool now follows a **form-first** workflow:
+
+1. Select the Cable tool — the data entry form opens immediately.
+2. Fill in cable properties (voltage, type, conductor, condition, etc.) and click **Save**.
+3. A banner appears: *"Cable drawing active — click the first asset, then the second to connect them."*
+4. Click the start pole/transformer, then the end pole/transformer — the cable is drawn between them.
+
+Asset popups are suppressed while cable drawing is active, so clicking a pole to set an endpoint no longer opens a confusing popup. A **Cancel** button on the banner allows aborting at any time.
+
+### Cable Length Labels
+
+Built-as-laid (red) cables now display their calculated length at the midpoint of the line, matching the behaviour that already existed for design cables.
+
+### Shell Script
+
+A `run.sh` script at the project root resets the database and starts the Flask server in a single command.
