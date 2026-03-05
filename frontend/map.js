@@ -445,18 +445,49 @@ const MapController = (() => {
     }
     polyline.bindPopup(popupContent, { maxWidth: 300 });
     polyline.addTo(map);
+
+    // Add cable length label at the midpoint
+    const coords = feature.geometry.coordinates;
+    if (coords.length >= 2) {
+      const length = calculateLineLength(coords);
+      const lengthStr =
+        length < 1000
+          ? `${length.toFixed(1)}m`
+          : `${(length / 1000).toFixed(2)}km`;
+      const start = coords[0];
+      const end = coords[coords.length - 1];
+      const midPoint = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2];
+      const label = L.marker([midPoint[1], midPoint[0]], {
+        icon: L.divIcon({
+          className: "cable-length-label",
+          html: `<span>${lengthStr}</span>`,
+          iconSize: [50, 20],
+          iconAnchor: [25, 10],
+        }),
+      });
+      label.addTo(map);
+    }
   };
 
   const clearAsBuiltLayers = () => {
     if (!map) return;
     const assetColors = ["#2980b9", "#e74c3c"];
     map.eachLayer((layer) => {
+      // Remove asset markers and polylines
       if (
         (layer instanceof L.CircleMarker &&
           assetColors.includes(layer.options.fillColor)) ||
         (layer instanceof L.Polyline &&
           !(layer instanceof L.CircleMarker) &&
           assetColors.includes(layer.options.color))
+      ) {
+        map.removeLayer(layer);
+        return;
+      }
+      // Remove cable length labels added by renderSingleAsBuiltLine
+      if (
+        layer instanceof L.Marker &&
+        layer.options.icon?.options?.className === "cable-length-label"
       ) {
         map.removeLayer(layer);
       }
