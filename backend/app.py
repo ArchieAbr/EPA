@@ -10,14 +10,23 @@ Endpoints:
 """
 
 import json
+import logging
 import os
 from datetime import datetime, timezone
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template_string, request
 from flask_cors import CORS
 from sqlalchemy.orm.attributes import flag_modified
 
 from models import Asset, AuditLog, WorkOrder, db
+
+# ─── Console logging ───
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-5s  %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("gis")
 
 app = Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///app.db"
@@ -227,6 +236,9 @@ def sync():
     if not actions:
         return jsonify({"status": "ok", "processed": 0, "results": []})
 
+    log.info("━" * 60)
+    log.info("SYNC REQUEST — %d action(s) received", len(actions))
+
     now = datetime.now(timezone.utc)
     results = []
 
@@ -305,7 +317,7 @@ def sync():
                     existing.updated_at = now
 
             # Write audit log entry
-            log = AuditLog(
+            audit_entry = AuditLog(
                 action=action,
                 asset_id=asset_id,
                 work_order_id=wo_id,
@@ -313,13 +325,29 @@ def sync():
                 payload=entry,
                 created_at=now,
             )
-            db.session.add(log)
+            db.session.add(audit_entry)
             results.append({"asset_id": asset_id, "status": "ok"})
+
+            # ── Console logging per action ──
+            log.info(
+                "  %-7s  %-20s  type=%-12s  wo=%s",
+                action, asset_id, asset_type, wo_id or "—",
+            )
 
         except Exception as exc:
             results.append({"asset_id": asset_id, "status": "error", "reason": str(exc)})
+            log.error("  FAILED   %-20s  %s", asset_id, exc)
 
     db.session.commit()
+
+    ok_count = sum(1 for r in results if r["status"] == "ok")
+    err_count = len(results) - ok_count
+    log.info(
+        "SYNC COMPLETE — %d ok, %d errors  (assets in register: %d)",
+        ok_count, err_count,
+        Asset.query.filter_by(status="active").count(),
+    )
+    log.info("━" * 60)
 
     return jsonify({
         "status": "ok",
@@ -346,6 +374,52 @@ def get_audit_log():
         }
         for log in logs
     ])
+
+
+# ─────────────────────── Activity feed (for dashboard) ────────────────────────
+
+@app.route("/api/activity", methods=["GET"])
+def get_activity():
+    """Return recent activity plus DB stats for the admin dashboard."""
+    logs = AuditLog.query.order_by(AuditLog.created_at.desc()).limit(50).all()
+    active_assets = Asset.query.filter_by(status="active").count()
+    decommissioned = Asset.query.filter_by(status="decommissioned").count()
+    work_orders = WorkOrder.query.count()
+    total_audits = AuditLog.query.count()
+
+    return jsonify({
+        "stats": {
+            "active_assets": active_assets,
+            "decommissioned_assets": decommissioned,
+            "work_orders": work_orders,
+            "total_audit_entries": total_audits,
+        },
+        "recent": [
+            {
+                "id": l.id,
+                "action": l.action,
+                "asset_id": l.asset_id,
+                "work_order_id": l.work_order_id,
+                "engineer": l.engineer,
+                "created_at": l.created_at.isoformat(),
+                "asset_type": (l.payload or {}).get("asset_type", "—"),
+            }
+            for l in logs
+        ],
+    })
+
+
+# ─────────────────────── Admin dashboard ────────────────────────
+
+ADMIN_HTML = open(
+    os.path.join(os.path.dirname(__file__), "admin.html"), encoding="utf-8"
+).read() if os.path.exists(os.path.join(os.path.dirname(__file__), "admin.html")) else "<h1>admin.html not found</h1>"
+
+
+@app.route("/admin")
+def admin_dashboard():
+    """Serve the live activity dashboard."""
+    return ADMIN_HTML
 
 
 # ─────────────────────────── Entrypoint ───────────────────────────
