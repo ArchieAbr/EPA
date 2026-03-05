@@ -373,11 +373,11 @@ This executes 11 integration tests covering Dexie connectivity, sync queue opera
 
 ### Work Orders (work_orders.json)
 
-| ID | Area | Assets |
+| ID | Area | Design Assets |
 | --- | --- | --- |
-| WR-2025-9901 | Woodhouse Moor Circuit Upgrade | 5 design assets (3 poles, 1 transformer, 1 cable) |
-| WR-2025-9902 | Hyde Park Feeder Inspection | 4 design assets (2 poles, 1 transformer, 1 cable) |
-| WR-2025-9903 | Headingley Tx Replacement | 3 design assets (1 pole, 1 transformer, 1 cable) |
+| WR-2026-0401 | Woodhouse Moor New LV Feeder | 6 proposed assets (3 poles, 1 PMT, 2 ABC cable sections) |
+| WR-2026-0402 | Hyde Park 11kV Circuit Extension | 9 proposed assets (4 poles, 1 GMT, 4 cable sections) |
+| WR-2026-0403 | Headingley New Customer Feeder | 6 proposed assets (2 poles, 1 GMT, 3 cable sections) |
 
 ### Existing Assets (database.geojson)
 
