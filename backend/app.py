@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from sqlalchemy.orm.attributes import flag_modified
 
 from models import Asset, AuditLog, WorkOrder, db
 
@@ -237,12 +238,12 @@ def sync():
         geometry = entry.get("geometry")
         properties = entry.get("properties", {})
 
-        if not asset_id or action not in ("CREATE", "UPDATE", "DELETE"):
+        if not asset_id or action not in ("CREATE", "UPDATE", "DELETE", "ACCEPT"):
             results.append({"asset_id": asset_id, "status": "skipped", "reason": "invalid"})
             continue
 
         try:
-            if action == "CREATE":
+            if action in ("CREATE", "ACCEPT"):
                 existing = db.session.get(Asset, asset_id)
                 if existing:
                     # Treat as update if asset already exists (idempotent re-sync)
@@ -261,6 +262,19 @@ def sync():
                         updated_at=now,
                     )
                     db.session.add(asset)
+
+                # For ACCEPT actions, mark the design asset as accepted in
+                # the work order so it is no longer rendered as a blackline.
+                if action == "ACCEPT" and wo_id:
+                    wo = db.session.get(WorkOrder, wo_id)
+                    if wo and wo.design_assets:
+                        updated_designs = []
+                        for da in wo.design_assets:
+                            if da.get("id") == asset_id:
+                                da = {**da, "properties": {**da.get("properties", {}), "status": "accepted"}}
+                            updated_designs.append(da)
+                        wo.design_assets = updated_designs
+                        flag_modified(wo, "design_assets")
 
             elif action == "UPDATE":
                 existing = db.session.get(Asset, asset_id)

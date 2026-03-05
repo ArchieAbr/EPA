@@ -7,6 +7,7 @@ window.activateTool = activateTool;
 window.openWorkOrderSelector = openWorkOrderSelector;
 window.saveAssetForm = saveAssetForm;
 window.deleteAsset = deleteAsset;
+window.acceptDesignAsset = acceptDesignAsset;
 window.closeWorkOrderSelector = () => UI.hideWorkOrderSelector();
 
 // Block accidental form submissions causing page reload
@@ -95,7 +96,10 @@ async function loadWorkOrder(woId) {
 
     AppState.currentWorkOrder = workOrder;
     MapController.setBounds(workOrder.bounds);
-    MapController.renderJobPackLayers(workOrder);
+
+    // Determine which design assets have already been accepted
+    const acceptedIds = workOrder.accepted_designs || [];
+    MapController.renderJobPackLayers(workOrder, acceptedIds);
     await renderLocalAssets();
 
     UI.updateWorkOrderUI(workOrder);
@@ -326,6 +330,83 @@ async function deleteAsset(assetId) {
   await updateSyncBadge();
   MapController.getMap()?.closePopup();
   console.log(`Asset ${assetId} deleted (queued for sync).`);
+}
+
+// ──────────────────── Accept Design Asset ────────────────────
+
+/**
+ * Accept a blackline (proposed) design asset, converting it to an as-built asset.
+ * The design feature is looked up from the current work order's design_assets by ID,
+ * then saved to IndexedDB as a local asset and queued for sync.
+ */
+async function acceptDesignAsset(designId) {
+  const wo = AppState.currentWorkOrder;
+  if (!wo || !wo.design_assets) {
+    console.error("No work order loaded — cannot accept design.");
+    return;
+  }
+
+  // Find the design feature by its ID
+  const designFeature = wo.design_assets.find((f) => f.id === designId);
+  if (!designFeature) {
+    console.error(`Design asset '${designId}' not found in work order.`);
+    return;
+  }
+
+  const assetType =
+    designFeature.properties.asset_type ||
+    designFeature.properties.type ||
+    "Unknown";
+
+  // Build the as-built asset from the design
+  const asset = {
+    id: designId,
+    type: "Feature",
+    properties: {
+      ...designFeature.properties,
+      status: "As-Built",
+      accepted_from_design: designId,
+      accepted_at: new Date().toISOString(),
+    },
+    geometry: designFeature.geometry,
+    work_order_id: wo.id,
+    _source: "local",
+  };
+
+  // Normalise the assetType key so renderers pick it up correctly
+  if (!asset.properties.assetType && asset.properties.asset_type) {
+    asset.properties.assetType = asset.properties.asset_type;
+  }
+
+  // 1. Persist the as-built asset in IndexedDB
+  await DB.putAsset(asset);
+
+  // 2. Queue an ACCEPT sync action
+  await DB.queueAction({
+    action: "ACCEPT",
+    asset_id: designId,
+    work_order_id: wo.id,
+    asset_type: assetType,
+    geometry: designFeature.geometry,
+    properties: asset.properties,
+    design_id: designId,
+  });
+
+  // 3. Track accepted design IDs in the cached work order
+  if (!wo.accepted_designs) wo.accepted_designs = [];
+  if (!wo.accepted_designs.includes(designId)) {
+    wo.accepted_designs.push(designId);
+  }
+  await DB.saveWorkOrder(wo);
+
+  // 4. Re-render: remove accepted design from grey layer, show as blue as-built
+  const acceptedIds = wo.accepted_designs || [];
+  MapController.renderJobPackLayers(wo, acceptedIds);
+  await renderLocalAssets();
+  await updateSyncBadge();
+
+  MapController.getMap()?.closePopup();
+  console.log(`Design '${designId}' accepted as as-built asset.`);
 }
 
 // ──────────────────── Sync Logic ────────────────────
