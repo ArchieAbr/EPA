@@ -53,7 +53,7 @@ const MapController = (() => {
     }
   };
 
-  const renderJobPackLayers = (workOrder) => {
+  const renderJobPackLayers = (workOrder, acceptedDesignIds = []) => {
     if (!map) return;
     if (designLayer) {
       map.removeLayer(designLayer);
@@ -65,7 +65,13 @@ const MapController = (() => {
 
     designLayer = L.layerGroup().addTo(map);
 
-    L.geoJSON(workOrder.design_assets, {
+    // Filter out designs that have already been accepted
+    const acceptedSet = new Set(acceptedDesignIds);
+    const pendingDesigns = workOrder.design_assets.filter(
+      (f) => !acceptedSet.has(f.id),
+    );
+
+    L.geoJSON(pendingDesigns, {
       style: {
         color: "#2c3e50",
         dashArray: "5, 10",
@@ -96,6 +102,18 @@ const MapController = (() => {
       onEachFeature: (feature, layer) => {
         const assetType =
           feature.properties.asset_type || feature.properties.type || "Unknown";
+        const designId = feature.id || "unknown";
+        const notes = feature.properties.notes
+          ? `<br><span style="color:#7f8c8d; font-size:0.85em;">${feature.properties.notes}</span>`
+          : "";
+
+        const acceptBtn = `
+          <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+          <button onclick="acceptDesignAsset('${designId}')"
+            style="width:100%; padding:8px; background:#27ae60; color:white;
+                   border:none; border-radius:4px; cursor:pointer; font-weight:bold;">
+            ✓ Accept Design
+          </button>`;
 
         if (feature.geometry.type === "LineString") {
           const coords = feature.geometry.coordinates;
@@ -106,7 +124,15 @@ const MapController = (() => {
               : `${(length / 1000).toFixed(2)}km`;
 
           layer.bindPopup(
-            `<b>DESIGN: ${assetType}</b><br>Length: ${lengthStr}<br>Status: ${feature.properties.status}`,
+            `<div style="min-width:180px;">
+              <b>DESIGN: ${assetType}</b><br>
+              Design ID: <code>${designId}</code><br>
+              Length: ${lengthStr}<br>
+              Status: ${feature.properties.status}
+              ${notes}
+              ${acceptBtn}
+            </div>`,
+            { maxWidth: 300 },
           );
 
           // Place length label at the geometric midpoint between start and end
@@ -124,7 +150,14 @@ const MapController = (() => {
           designLayer.addLayer(label);
         } else {
           layer.bindPopup(
-            `<b>DESIGN: ${assetType}</b><br>Status: ${feature.properties.status}`,
+            `<div style="min-width:180px;">
+              <b>DESIGN: ${assetType}</b><br>
+              Design ID: <code>${designId}</code><br>
+              Status: ${feature.properties.status}
+              ${notes}
+              ${acceptBtn}
+            </div>`,
+            { maxWidth: 300 },
           );
         }
       },
@@ -148,6 +181,10 @@ const MapController = (() => {
 
     const pending = feature._source === "local";
 
+    // Existing assets (from server register) = blue, built-as-laid (local) = red
+    const fillCol = pending ? "#e74c3c" : "#2980b9";
+    const strokeCol = pending ? "#c0392b" : "#2471a3";
+
     const marker = isTransformer
       ? L.marker(
           [feature.geometry.coordinates[1], feature.geometry.coordinates[0]],
@@ -156,7 +193,7 @@ const MapController = (() => {
               className: "asbuilt-transformer",
               iconSize: [16, 16],
               iconAnchor: [8, 8],
-              html: `<div style="width:16px;height:16px;background:#2980b9;border:2px solid #2471a3;border-radius:2px;${pending ? "opacity:0.6;border-style:dashed;" : ""}"></div>`,
+              html: `<div style="width:16px;height:16px;background:${fillCol};border:2px solid ${strokeCol};border-radius:2px;${pending ? "opacity:0.6;border-style:dashed;" : ""}"></div>`,
             }),
           },
         )
@@ -164,8 +201,8 @@ const MapController = (() => {
           [feature.geometry.coordinates[1], feature.geometry.coordinates[0]],
           {
             radius: 7,
-            fillColor: "#2980b9",
-            color: "#2471a3",
+            fillColor: fillCol,
+            color: strokeCol,
             weight: 2,
             fillOpacity: 1,
           },
@@ -305,8 +342,11 @@ const MapController = (() => {
       coord[0],
     ]);
 
+    // Existing assets (from server register) = blue, built-as-laid (local) = red
+    const lineCol = feature._source === "local" ? "#e74c3c" : "#2980b9";
+
     const polyline = L.polyline(latlngs, {
-      color: "#2980b9",
+      color: lineCol,
       weight: 4,
       opacity: 0.8,
     });
@@ -398,11 +438,14 @@ const MapController = (() => {
 
   const clearAsBuiltLayers = () => {
     if (!map) return;
+    const assetColors = ["#2980b9", "#e74c3c"];
     map.eachLayer((layer) => {
       if (
         (layer instanceof L.CircleMarker &&
-          layer.options.fillColor === "#2980b9") ||
-        (layer instanceof L.Polyline && layer.options.color === "#2980b9")
+          assetColors.includes(layer.options.fillColor)) ||
+        (layer instanceof L.Polyline &&
+          !(layer instanceof L.CircleMarker) &&
+          assetColors.includes(layer.options.color))
       ) {
         map.removeLayer(layer);
       }
