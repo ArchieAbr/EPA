@@ -35,8 +35,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 db.init_app(app)
 
-WORK_ORDERS_FILE = "work_orders.json"
-ASSETS_FILE = "database.geojson"
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+WORK_ORDERS_FILE = os.path.join(_BASE_DIR, "work_orders.json")
+ASSETS_FILE = os.path.join(_BASE_DIR, "database.geojson")
 
 
 # ─────────────────────────── Seed helpers ───────────────────────────

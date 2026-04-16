@@ -72,20 +72,33 @@ async function loadWorkOrder(woId) {
     let existingAssets = [];
 
     if (AppState.isServerReachable) {
-      // ONLINE: fetch from server and cache locally
-      workOrder = await API.fetchWorkOrder(woId);
-      existingAssets = await API.fetchWorkOrderAssets(woId);
+      // ONLINE: fetch from server and cache locally, fall back to local on error
+      try {
+        workOrder = await API.fetchWorkOrder(woId);
+        existingAssets = await API.fetchWorkOrderAssets(woId);
 
-      // Cache work order
-      await DB.saveWorkOrder(workOrder);
+        // Cache work order
+        await DB.saveWorkOrder(workOrder);
 
-      // Tag each existing asset with the work_order_id and save locally
-      const tagged = existingAssets.map((a) => ({
-        ...a,
-        work_order_id: woId,
-        _source: "server", // so we know it came from the register
-      }));
-      await DB.saveAssets(tagged);
+        // Tag each existing asset with the work_order_id and save locally
+        const tagged = existingAssets.map((a) => ({
+          ...a,
+          work_order_id: woId,
+          _source: "server", // so we know it came from the register
+        }));
+        await DB.saveAssets(tagged);
+      } catch (serverErr) {
+        console.warn(
+          "Server fetch failed, falling back to local cache:",
+          serverErr,
+        );
+        workOrder = await DB.getWorkOrder(woId);
+        if (!workOrder) {
+          alert("Work order not available. Please try again.");
+          return;
+        }
+        existingAssets = await DB.getAssets(woId);
+      }
     } else {
       // OFFLINE: load from local cache
       workOrder = await DB.getWorkOrder(woId);
