@@ -557,7 +557,7 @@ async function checkServerStatus() {
     // Auto-sync when connection is restored
     if (!wasReachable) {
       console.log("Connection restored — auto-syncing...");
-      syncOfflineChanges();
+      await syncOfflineChanges();
     }
   } else {
     UI.updateStatus("offline");
