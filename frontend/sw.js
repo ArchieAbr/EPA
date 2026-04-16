@@ -4,18 +4,18 @@
 
 const CACHE_NAME = "offline-gis-v1";
 
-// Static files to cache on install
+// Static files to cache on install (relative to SW scope)
 const STATIC_ASSETS = [
-  "/",
-  "/index.html",
-  "/styles.css",
-  "/state.js",
-  "/db.js",
-  "/api.js",
-  "/map.js",
-  "/forms.js",
-  "/ui.js",
-  "/app.js",
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./state.js",
+  "./db.js",
+  "./api.js",
+  "./map.js",
+  "./forms.js",
+  "./ui.js",
+  "./app.js",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
   "https://unpkg.com/dexie@4.0.11/dist/dexie.min.js",
