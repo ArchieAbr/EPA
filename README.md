@@ -127,7 +127,8 @@ The application follows a clear three-step workflow that maps directly to how a 
 4. The server processes each action sequentially:
    - **CREATE** → inserts a new row into the `assets` table and writes an audit log entry.
    - **UPDATE** → overwrites geometry/properties on the existing row and logs the change.
-   - **DELETE** → removes the row and logs the deletion.
+   - **DELETE** → soft-deletes the asset (sets status to `decommissioned`) and logs the deletion.
+   - **ACCEPT** → creates a new as-built asset from a design asset and marks the corresponding entry in the work order's `design_assets` as accepted.
 5. On a successful `200` response, the local `sync_queue` is cleared and the badge resets to zero.
 
 ### Conflict Resolution: Last-Writer-Wins
@@ -159,12 +160,13 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 ```
 ├── backend/
-│   ├── app.py               # Flask API server (6 endpoints, seed helpers)
+│   ├── app.py               # Flask API server (8 routes, seed helpers)
 │   ├── models.py            # SQLAlchemy models: WorkOrder, Asset, AuditLog
 │   ├── database.geojson     # Seed data — 15 existing assets across 3 areas
 │   ├── work_orders.json     # Seed data — 3 work orders with design assets
 │   ├── requirements.txt     # Python dependencies
-│   └── test_backend.py      # 11 pytest unit tests
+│   ├── test_backend.py      # 33 pytest API endpoint tests
+│   └── test_workflows.py    # 12 pytest workflow simulation tests
 │
 ├── frontend/
 │   ├── index.html           # PWA shell — Dexie CDN, SW registration, sync badge
@@ -180,7 +182,7 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 │   └── manifest.json        # PWA manifest for standalone mode
 │
 └── tests/
-    └── system-checks.js     # 11 in-browser integration tests (run via console)
+    └── system-checks.js     # 18 in-browser integration tests (run via console)
 ```
 
 ### Frontend Module Responsibilities
@@ -200,14 +202,16 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 ## API Endpoints
 
-| Method | Path                          | Description                                                                                                                 |
-| ------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `GET`  | `/api/health`                 | Returns `{ "status": "ok" }` — used by the frontend health-check timer                                                      |
-| `GET`  | `/api/workorders`             | Returns all work orders as a JSON array (id, area, status, summary)                                                         |
-| `GET`  | `/api/workorders/<id>`        | Returns a single work order including its `design_assets` GeoJSON                                                           |
-| `GET`  | `/api/workorders/<id>/assets` | Returns existing as-built assets filtered to the work order's geographic bounding box                                       |
-| `POST` | `/api/sync`                   | Accepts `{ "actions": [...] }` — processes each action (CREATE / UPDATE / DELETE) sequentially and writes audit log entries |
-| `GET`  | `/api/audit`                  | Returns the full audit log (most recent first)                                                                              |
+| Method | Path                          | Description                                                                                                                          |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET`  | `/api/health`                 | Returns `{ "status": "ok", "boot_id": "..." }` — used by the frontend to detect connectivity and server restarts                     |
+| `GET`  | `/api/workorders`             | Returns all work orders as a JSON array (id, area, status, summary)                                                                  |
+| `GET`  | `/api/workorders/<id>`        | Returns a single work order including its `design_assets` GeoJSON                                                                    |
+| `GET`  | `/api/workorders/<id>/assets` | Returns existing as-built assets filtered to the work order's geographic bounding box                                                |
+| `POST` | `/api/sync`                   | Accepts `{ "actions": [...] }` — processes each action (CREATE / UPDATE / DELETE / ACCEPT) sequentially and writes audit log entries |
+| `GET`  | `/api/audit`                  | Returns the full audit log (most recent first)                                                                                       |
+| `GET`  | `/api/activity`               | Returns database statistics (active assets, decommissioned, work orders, audit entries) and the 50 most recent audit entries         |
+| `GET`  | `/admin`                      | Serves a live activity dashboard that polls `/api/activity` every two seconds                                                        |
 
 ### Sync Payload Format
 
@@ -230,6 +234,14 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
     {
       "action": "DELETE",
       "asset_id": "WR-2025-9901-1748302799000"
+    },
+    {
+      "action": "ACCEPT",
+      "asset_id": "design-asset-001",
+      "work_order_id": "WR-2026-0401",
+      "asset_type": "Pole",
+      "geometry": { "type": "Point", "coordinates": [-1.558, 53.81] },
+      "properties": { "status": "As-Built" }
     }
   ]
 }
@@ -352,10 +364,13 @@ Then open `http://localhost:8080` in a browser.
 
 ```bash
 cd backend
-pytest test_backend.py -v
+pytest test_backend.py test_workflows.py -v
 ```
 
-All 11 tests should pass with zero warnings.
+- `test_backend.py` — 33 tests across 10 classes covering health, work orders, sync CRUD (create, update, delete, accept), edge cases, audit log, activity feed, and admin.
+- `test_workflows.py` — 12 tests across 5 classes simulating field session lifecycle, accept design workflow, mixed offline batch, database reset, and idempotent re-sync.
+
+All 45 tests should pass with zero warnings.
 
 **Frontend (browser console):**
 
@@ -365,7 +380,7 @@ Open the application in a browser, then run in the developer console:
 SystemTests.runAll();
 ```
 
-This executes 11 integration tests covering Dexie connectivity, sync queue operations, asset CRUD, form templates, UI components, map initialisation, and Service Worker registration.
+This executes 18 integration tests covering Dexie connectivity, sync queue operations, asset CRUD, work order caching, form templates (pole, transformer, cable), UI components (traffic lights, grade selectors), map controller, Service Worker registration, API connectivity (health, boot ID, work orders, assets, activity feed), and a full offline create-sync round-trip.
 
 ---
 
@@ -424,10 +439,10 @@ Engineers can now accept proposed (blackline) design assets directly from the ma
 
 Map markers now use two distinct colour schemes to distinguish asset categories at a glance:
 
-| Category             | Colour | Description                                        |
-| -------------------- | ------ | -------------------------------------------------- |
-| **Existing assets**  | Blue (#2980b9) | Assets already in the server register        |
-| **Built-as-laid**    | Red (#e74c3c)  | Newly captured or accepted assets (unsynced) |
+| Category            | Colour         | Description                                  |
+| ------------------- | -------------- | -------------------------------------------- |
+| **Existing assets** | Blue (#2980b9) | Assets already in the server register        |
+| **Built-as-laid**   | Red (#e74c3c)  | Newly captured or accepted assets (unsynced) |
 
 ### Activity Monitoring (Admin Dashboard)
 
@@ -457,7 +472,7 @@ The cable tool now follows a **form-first** workflow:
 
 1. Select the Cable tool — the data entry form opens immediately.
 2. Fill in cable properties (voltage, type, conductor, condition, etc.) and click **Save**.
-3. A banner appears: *"Cable drawing active — click the first asset, then the second to connect them."*
+3. A banner appears: _"Cable drawing active — click the first asset, then the second to connect them."_
 4. Click the start pole/transformer, then the end pole/transformer — the cable is drawn between them.
 
 Asset popups are suppressed while cable drawing is active, so clicking a pole to set an endpoint no longer opens a confusing popup. A **Cancel** button on the banner allows aborting at any time.
