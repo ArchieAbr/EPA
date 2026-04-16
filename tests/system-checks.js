@@ -38,6 +38,17 @@ const SystemTests = {
     await this.test("Map Controller Exists", this.testMapController);
     await this.test("Service Worker Registered", this.testServiceWorker);
 
+    // API connectivity checks
+    await this.test("API Health Check", this.testAPIHealth);
+    await this.test("API Boot ID Present", this.testAPIBootId);
+    await this.test("API Work Orders List", this.testAPIWorkOrders);
+    await this.test("API Work Order Detail", this.testAPIWorkOrderDetail);
+    await this.test("API Work Order Assets", this.testAPIWorkOrderAssets);
+    await this.test("API Activity Feed", this.testAPIActivity);
+
+    // Offline workflow checks
+    await this.test("Offline Create + Sync", this.testOfflineCreateSync);
+
     this.printSummary();
     return {
       passed: this.passed,
@@ -65,7 +76,7 @@ const SystemTests = {
     }
   },
 
-  // ==================== Individual Tests ====================
+  // ==================== IndexedDB Tests ====================
 
   async testDexieConnection() {
     if (typeof Dexie === "undefined") {
@@ -154,6 +165,8 @@ const SystemTests = {
     return { success: true, message: "Work order cache OK" };
   },
 
+  // ==================== Form Template Tests ====================
+
   async testPoleFormTemplate() {
     if (typeof getFormTemplate !== "function") {
       return { success: false, message: "getFormTemplate function not found" };
@@ -198,6 +211,8 @@ const SystemTests = {
         : "Missing required fields",
     };
   },
+
+  // ==================== UI Component Tests ====================
 
   async testTrafficLightInit() {
     const container = document.createElement("div");
@@ -258,6 +273,15 @@ const SystemTests = {
         message: "Service Workers not supported in this browser",
       };
     }
+    // Wait up to 3 s for the SW to finish registering/activating
+    const ready = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((r) => setTimeout(() => r(null), 3000)),
+    ]);
+    if (ready && ready.active) {
+      return { success: true, message: `SW active (scope: ${ready.scope})` };
+    }
+    // Fallback: check existing registrations
     const registrations = await navigator.serviceWorker.getRegistrations();
     const hasSW = registrations.length > 0;
     return {
@@ -266,6 +290,184 @@ const SystemTests = {
         ? `${registrations.length} SW registered`
         : "No SW registered (may need page reload)",
     };
+  },
+
+  // ==================== API Connectivity Tests ====================
+
+  async testAPIHealth() {
+    try {
+      const res = await fetch(`${AppConfig.API_BASE}/api/health`);
+      if (!res.ok) return { success: false, message: `Status ${res.status}` };
+      const data = await res.json();
+      return {
+        success: data.status === "ok",
+        message: `Server healthy, boot_id: ${data.boot_id || "—"}`,
+      };
+    } catch (e) {
+      return { success: false, message: `Unreachable: ${e.message}` };
+    }
+  },
+
+  async testAPIBootId() {
+    try {
+      const res = await fetch(`${AppConfig.API_BASE}/api/health`);
+      const data = await res.json();
+      const hasBootId =
+        typeof data.boot_id === "string" && data.boot_id.length > 0;
+      return {
+        success: hasBootId,
+        message: hasBootId
+          ? `boot_id = ${data.boot_id}`
+          : "boot_id missing or empty",
+      };
+    } catch (e) {
+      return { success: false, message: `Unreachable: ${e.message}` };
+    }
+  },
+
+  async testAPIWorkOrders() {
+    try {
+      const res = await fetch(`${AppConfig.API_BASE}/api/workorders`);
+      const data = await res.json();
+      const ok = Array.isArray(data) && data.length > 0;
+      return {
+        success: ok,
+        message: ok
+          ? `${data.length} work orders found`
+          : "No work orders returned",
+      };
+    } catch (e) {
+      return { success: false, message: e.message };
+    }
+  },
+
+  async testAPIWorkOrderDetail() {
+    try {
+      const list = await (
+        await fetch(`${AppConfig.API_BASE}/api/workorders`)
+      ).json();
+      if (!list.length)
+        return { success: false, message: "No work orders to test" };
+      const woId = list[0].id;
+      const res = await fetch(`${AppConfig.API_BASE}/api/workorders/${woId}`);
+      const data = await res.json();
+      const ok = data.id === woId && Array.isArray(data.design_assets);
+      return {
+        success: ok,
+        message: ok
+          ? `${woId}: ${data.design_assets.length} design assets`
+          : "Unexpected response shape",
+      };
+    } catch (e) {
+      return { success: false, message: e.message };
+    }
+  },
+
+  async testAPIWorkOrderAssets() {
+    try {
+      const list = await (
+        await fetch(`${AppConfig.API_BASE}/api/workorders`)
+      ).json();
+      if (!list.length)
+        return { success: false, message: "No work orders to test" };
+      const woId = list[0].id;
+      const res = await fetch(
+        `${AppConfig.API_BASE}/api/workorders/${woId}/assets`,
+      );
+      const data = await res.json();
+      const ok = Array.isArray(data);
+      return {
+        success: ok,
+        message: ok
+          ? `${data.length} existing assets in bounds`
+          : "Not an array",
+      };
+    } catch (e) {
+      return { success: false, message: e.message };
+    }
+  },
+
+  async testAPIActivity() {
+    try {
+      const res = await fetch(`${AppConfig.API_BASE}/api/activity`);
+      const data = await res.json();
+      const ok = data.stats && typeof data.stats.active_assets === "number";
+      return {
+        success: ok,
+        message: ok
+          ? `${data.stats.active_assets} active assets, ${data.stats.work_orders} work orders`
+          : "Unexpected response shape",
+      };
+    } catch (e) {
+      return { success: false, message: e.message };
+    }
+  },
+
+  // ==================== Offline Workflow Test ====================
+
+  async testOfflineCreateSync() {
+    // This test creates a temporary asset in IndexedDB, queues a sync action,
+    // sends it to the server, then cleans up — verifying the full round-trip.
+    const testId = `sys-test-${Date.now()}`;
+    const woId = AppState.currentWorkOrder?.id;
+    if (!woId)
+      return {
+        success: false,
+        message: "No work order loaded — load one first",
+      };
+
+    try {
+      // 1. Save asset locally
+      await DB.putAsset({
+        id: testId,
+        type: "Feature",
+        properties: {
+          name: "System Test Asset",
+          assetType: "Pole",
+          status: "As-Built",
+        },
+        geometry: { type: "Point", coordinates: [-1.5607, 53.8095] },
+        work_order_id: woId,
+        _source: "local",
+      });
+
+      // 2. Queue a CREATE action
+      await DB.queueAction({
+        action: "CREATE",
+        asset_id: testId,
+        work_order_id: woId,
+        asset_type: "Pole",
+        geometry: { type: "Point", coordinates: [-1.5607, 53.8095] },
+        properties: { name: "System Test Asset" },
+      });
+
+      // 3. Sync to server
+      const queue = await DB.getSyncQueue();
+      const result = await API.sync(queue);
+      const entry = result.results.find((r) => r.asset_id === testId);
+      if (!entry || entry.status !== "ok") {
+        return { success: false, message: `Sync failed for ${testId}` };
+      }
+
+      // 4. Clean up: delete from server and local
+      await API.sync([
+        {
+          action: "DELETE",
+          asset_id: testId,
+          work_order_id: woId,
+          asset_type: "Pole",
+        },
+      ]);
+      await DB.removeAsset(testId);
+      await DB.clearSyncQueue();
+
+      return { success: true, message: "Create → queue → sync → cleanup OK" };
+    } catch (e) {
+      // Best-effort cleanup
+      await DB.removeAsset(testId).catch(() => {});
+      await DB.clearSyncQueue().catch(() => {});
+      return { success: false, message: e.message };
+    }
   },
 
   // ==================== Summary ====================
