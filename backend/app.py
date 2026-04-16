@@ -35,6 +35,9 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 db.init_app(app)
 
+# Unique ID for this server process — changes on every restart.
+_BOOT_ID = datetime.now(timezone.utc).isoformat()
+
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 WORK_ORDERS_FILE = os.path.join(_BASE_DIR, "work_orders.json")
 ASSETS_FILE = os.path.join(_BASE_DIR, "database.geojson")
@@ -155,8 +158,8 @@ def _point_in_bounds(geometry: dict, bounds: dict) -> bool:
 
 @app.route("/api/health", methods=["GET", "HEAD"])
 def health():
-    """Simple health check endpoint."""
-    return jsonify({"status": "ok"})
+    """Simple health check endpoint. Includes boot_id so clients can detect server restarts."""
+    return jsonify({"status": "ok", "boot_id": _BOOT_ID})
 
 
 @app.route("/api/workorders", methods=["GET"])

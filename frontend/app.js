@@ -561,12 +561,26 @@ async function updateSyncBadge() {
 
 async function checkServerStatus() {
   const wasReachable = AppState.isServerReachable;
-  const isReachable = await API.healthCheck();
+  const health = await API.healthCheck();
+  const isReachable = health.ok;
 
   AppState.isServerReachable = isReachable;
 
   if (isReachable) {
     UI.updateStatus("online");
+
+    // Detect server restart (e.g. run.sh reset) — clear stale local data
+    const prevBootId = localStorage.getItem("serverBootId");
+    if (health.boot_id && prevBootId && prevBootId !== health.boot_id) {
+      console.log("Server restarted (new boot_id) — clearing local caches...");
+      await DB.clearAll();
+      localStorage.removeItem("activeWorkOrderId");
+      AppState.currentWorkOrder = null;
+    }
+    if (health.boot_id) {
+      localStorage.setItem("serverBootId", health.boot_id);
+    }
+
     // Auto-sync when connection is restored
     if (!wasReachable) {
       console.log("Connection restored — auto-syncing...");

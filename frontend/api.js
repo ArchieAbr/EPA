@@ -64,21 +64,22 @@ const API = {
 
   /**
    * Quick health check (used for online/offline detection).
-   * @returns {Promise<boolean>}
+   * Returns { ok: boolean, boot_id: string|null }.
    */
   async healthCheck() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2000);
     try {
       const res = await fetch(`${AppConfig.API_BASE}/api/health`, {
-        method: "HEAD",
         signal: controller.signal,
       });
       clearTimeout(timeout);
-      return res.ok;
+      if (!res.ok) return { ok: false, boot_id: null };
+      const data = await res.json();
+      return { ok: true, boot_id: data.boot_id || null };
     } catch {
       clearTimeout(timeout);
-      return false;
+      return { ok: false, boot_id: null };
     }
   },
 };
