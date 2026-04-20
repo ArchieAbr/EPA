@@ -521,6 +521,12 @@ async function syncOfflineChanges() {
     return;
   }
 
+  if (!AppState.isServerReachable) {
+    console.warn("Cannot sync — server is unreachable.");
+    UI.showToast("Cannot sync — you are offline.");
+    return;
+  }
+
   console.log(`Syncing ${queue.length} queued actions...`);
   UI.updateStatus("checking");
 
@@ -535,6 +541,11 @@ async function syncOfflineChanges() {
     UI.updateStatus("online");
     UI.showToast(`✓ Synced ${result.processed} action(s)`);
     console.log(`Sync complete: ${result.processed} actions processed.`);
+
+    // Reload the work order from the server so the map reflects synced state
+    if (AppState.currentWorkOrder) {
+      await loadWorkOrder(AppState.currentWorkOrder.id);
+    }
   } catch (err) {
     console.error("Sync failed:", err);
     UI.updateStatus("offline");
@@ -569,18 +580,13 @@ async function checkServerStatus() {
   if (isReachable) {
     UI.updateStatus("online");
 
-    // Auto-sync FIRST so offline actions are not lost
-    if (!wasReachable) {
-      console.log("Connection restored — auto-syncing...");
-      await syncOfflineChanges();
-    }
-
-    // Detect server restart (e.g. run.sh reset) — clear stale local data
-    // This runs AFTER sync so pending actions are flushed before the cache is wiped.
+    // Detect server restart (e.g. run.sh reset) — clear stale cached data
+    // but preserve the sync queue so pending actions are not lost.
     const prevBootId = localStorage.getItem("serverBootId");
     if (health.boot_id && prevBootId && prevBootId !== health.boot_id) {
       console.log("Server restarted (new boot_id) — clearing local caches...");
-      await DB.clearAll();
+      await idb.local_work_orders.clear();
+      await idb.local_assets.clear();
       localStorage.removeItem("activeWorkOrderId");
       AppState.currentWorkOrder = null;
     }
