@@ -2,7 +2,7 @@
 // Service Worker — caches static files and map tiles for offline use
 // ============================================================
 
-const CACHE_NAME = "offline-gis-v1";
+const CACHE_NAME = "offline-gis-v2";
 
 // Static files to cache on install (relative to SW scope)
 const STATIC_ASSETS = [
@@ -30,8 +30,7 @@ self.addEventListener("install", (event) => {
       return cache.addAll(STATIC_ASSETS);
     }),
   );
-  // Note: deliberately NOT calling skipWaiting() to avoid
-  // disrupting the active page mid-session.
+  self.skipWaiting();
 });
 
 // Activate: clean up old caches
@@ -46,7 +45,8 @@ self.addEventListener("activate", (event) => {
             .filter((key) => key !== CACHE_NAME)
             .map((key) => caches.delete(key)),
         ),
-      ),
+      )
+      .then(() => self.clients.claim()),
   );
 });
 

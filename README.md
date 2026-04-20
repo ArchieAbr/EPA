@@ -484,3 +484,12 @@ Built-as-laid (red) cables now display their calculated length at the midpoint o
 ### Shell Script
 
 A `run.sh` script at the project root resets the database and starts the Flask server in a single command.
+
+### Offline Sync Race Condition Fix
+
+A bug introduced by the boot_id cache invalidation caused offline actions to be lost on reconnection. When the server restarted (new `boot_id`), `checkServerStatus()` cleared all local caches — including the sync queue — _before_ `syncOfflineChanges()` had a chance to flush pending actions. The fix reorders the logic so that:
+
+1. Pending actions are synced to the server first.
+2. Stale caches are cleared afterwards (if the `boot_id` has changed).
+
+Additionally, the Service Worker was updated to call `self.skipWaiting()` on install and `self.clients.claim()` on activate. This ensures that when the SW cache version is bumped, the new worker takes control immediately rather than waiting for all tabs to close. Without this, code fixes deployed via updated static files were not reaching the browser due to the cache-first serving strategy.

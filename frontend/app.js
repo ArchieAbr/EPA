@@ -569,7 +569,14 @@ async function checkServerStatus() {
   if (isReachable) {
     UI.updateStatus("online");
 
+    // Auto-sync FIRST so offline actions are not lost
+    if (!wasReachable) {
+      console.log("Connection restored — auto-syncing...");
+      await syncOfflineChanges();
+    }
+
     // Detect server restart (e.g. run.sh reset) — clear stale local data
+    // This runs AFTER sync so pending actions are flushed before the cache is wiped.
     const prevBootId = localStorage.getItem("serverBootId");
     if (health.boot_id && prevBootId && prevBootId !== health.boot_id) {
       console.log("Server restarted (new boot_id) — clearing local caches...");
@@ -579,12 +586,6 @@ async function checkServerStatus() {
     }
     if (health.boot_id) {
       localStorage.setItem("serverBootId", health.boot_id);
-    }
-
-    // Auto-sync when connection is restored
-    if (!wasReachable) {
-      console.log("Connection restored — auto-syncing...");
-      await syncOfflineChanges();
     }
   } else {
     UI.updateStatus("offline");
