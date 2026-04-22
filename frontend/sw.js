@@ -2,7 +2,7 @@
 // Service Worker — caches static files and map tiles for offline use
 // ============================================================
 
-const CACHE_NAME = "offline-gis-v10";
+const CACHE_NAME = "offline-gis-v13";
 
 // Static files to cache on install (relative to SW scope)
 const STATIC_ASSETS = [

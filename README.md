@@ -109,7 +109,7 @@ The application follows a clear three-step workflow that maps directly to how a 
 2. `app.js` calls `API.fetchWorkOrder(id)` to retrieve the work order and `API.fetchWorkOrderAssets(id)` to retrieve existing assets within the work order's geographic bounding box.
 3. Both responses are written into IndexedDB (`local_work_orders` and `local_assets` stores).
 4. If the server is unreachable, the application falls back to whatever is already cached in IndexedDB — the engineer can continue working with stale data.
-5. Design assets (from the work order) are rendered on the map in **grey dashed** style. Existing as-built assets are rendered in **blue solid** style.
+5. Design assets (from the work order) are rendered on the map in **dark dashed** style. Existing as-built assets are rendered in **blue solid** style.
 
 #### Step B — Data Capture (Work Offline)
 
@@ -444,16 +444,20 @@ This executes 18 integration tests covering Dexie connectivity, sync queue opera
 
 ### Blackline Acceptance
 
-Engineers can now accept proposed (blackline) design assets directly from the map. Clicking a design asset's popup reveals an **Accept Design** button which converts it into an as-built asset, removes it from the design layer, and queues an `ACCEPT` sync action. The backend updates the work order's `design_assets` JSON to mark the item as accepted, preventing it from reappearing.
+Engineers can now accept proposed (blackline) design assets directly from the map. Clicking a design asset's popup reveals an **Accept Design** button. Before the asset is committed to the register, the CNAIM inspection form opens so the engineer can record condition data at the point of acceptance. On save, the asset is removed from the design layer, queued as an `ACCEPT` sync action, and immediately rendered in **dark solid** style (awaiting sync). The backend updates the work order's `design_assets` JSON to mark the item as accepted, preventing it from reappearing.
 
 ### Asset Colour Differentiation
 
-Map markers now use two distinct colour schemes to distinguish asset categories at a glance:
+Map assets use a four-state colour and style system to communicate their status at a glance:
 
-| Category            | Colour         | Description                                  |
-| ------------------- | -------------- | -------------------------------------------- |
-| **Existing assets** | Blue (#2980b9) | Assets already in the server register        |
-| **Built-as-laid**   | Red (#e74c3c)  | Newly captured or accepted assets (unsynced) |
+| State                           | Colour         | Style  | Description                                              |
+| ------------------------------- | -------------- | ------ | -------------------------------------------------------- |
+| **Planned design**              | Dark (#2c3e50) | Dashed | Asset exists only in the work order; not yet constructed |
+| **Accepted — awaiting sync**    | Dark (#2c3e50) | Solid  | Accepted from design by engineer; not yet synced         |
+| **New capture — awaiting sync** | Red (#e74c3c)  | Dashed | Newly placed by engineer in the field; not yet synced    |
+| **Registered**                  | Blue (#2980b9) | Solid  | Confirmed and stored in the server register              |
+
+A **Map Key** panel in the sidebar summarises these states for quick reference in the field.
 
 ### Activity Monitoring (Admin Dashboard)
 
@@ -476,6 +480,10 @@ python3 backend/app.py --reset
 ```
 
 A **Clear Local Data** button in the sidebar's Actions panel wipes the browser's IndexedDB cache (work orders, assets, and unsynced changes), ensuring the frontend matches the freshly reset backend.
+
+### Map Key
+
+A collapsible **Map Key** panel has been added to the sidebar below the Developer Tools section. It displays colour swatches and shape indicators for all four asset states (registered, unsynced capture, accepted/planned, pole circle, transformer square), giving field engineers an at-a-glance legend without needing to leave the map view.
 
 ### Cable Drawing Workflow
 

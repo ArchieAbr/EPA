@@ -180,20 +180,23 @@ const MapController = (() => {
       ).toLowerCase() === "transformer";
 
     const pending = feature._source === "local";
+    // Accepted design assets are confirmed but not yet synced — show as solid dark
+    const isAccepted = pending && !!feature.properties.accepted_from_design;
 
-    // Existing assets (from server register) = blue, built-as-laid (local) = red
-    const fillCol = pending ? "#e74c3c" : "#2980b9";
-    const strokeCol = pending ? "#c0392b" : "#2471a3";
+    // Registered (synced) = blue | accepted design (unsynced) = dark | new capture (unsynced) = red
+    const fillCol = !pending ? "#2980b9" : isAccepted ? "#2c3e50" : "#e74c3c";
+    const strokeCol = !pending ? "#2471a3" : isAccepted ? "#1a252f" : "#c0392b";
 
     const marker = isTransformer
       ? L.marker(
           [feature.geometry.coordinates[1], feature.geometry.coordinates[0]],
           {
+            _asbuilt: true,
             icon: L.divIcon({
               className: "asbuilt-transformer",
               iconSize: [16, 16],
               iconAnchor: [8, 8],
-              html: `<div style="width:16px;height:16px;background:${fillCol};border:2px solid ${strokeCol};border-radius:2px;${pending ? "opacity:0.6;border-style:dashed;" : ""}"></div>`,
+              html: `<div style="width:16px;height:16px;background:${fillCol};border:2px solid ${strokeCol};border-radius:2px;${pending && !isAccepted ? "opacity:0.6;border-style:dashed;" : ""}"></div>`,
             }),
           },
         )
@@ -205,6 +208,7 @@ const MapController = (() => {
             color: strokeCol,
             weight: 2,
             fillOpacity: 1,
+            _asbuilt: true,
           },
         );
 
@@ -227,7 +231,11 @@ const MapController = (() => {
     }
 
     const p = feature.properties;
-    const syncStatus = feature._source === "local" ? "Unsynced" : "Synced";
+    const syncStatus = !pending
+      ? "Synced"
+      : isAccepted
+        ? "Accepted — awaiting sync"
+        : "Unsynced";
     const photoHtml = p.photo
       ? `<img src="${p.photo}" style="width:100%; max-height:100px; object-fit:cover; border-radius:4px; margin:8px 0;">`
       : "";
@@ -341,7 +349,7 @@ const MapController = (() => {
       `;
     }
 
-    if (feature._source === "local" && typeof marker.setStyle === "function") {
+    if (pending && !isAccepted && typeof marker.setStyle === "function") {
       marker.setStyle({ fillOpacity: 0.5, dashArray: "2, 2" });
     }
     marker.bindPopup(popupContent, { maxWidth: 300 });
@@ -355,16 +363,29 @@ const MapController = (() => {
       coord[0],
     ]);
 
-    // Existing assets (from server register) = blue, built-as-laid (local) = red
-    const lineCol = feature._source === "local" ? "#e74c3c" : "#2980b9";
+    const linePending = feature._source === "local";
+    const lineAccepted =
+      linePending && !!feature.properties.accepted_from_design;
+
+    // Registered (synced) = blue | accepted design (unsynced) = dark | new capture (unsynced) = red
+    const lineCol = !linePending
+      ? "#2980b9"
+      : lineAccepted
+        ? "#2c3e50"
+        : "#e74c3c";
 
     const polyline = L.polyline(latlngs, {
       color: lineCol,
       weight: 4,
       opacity: 0.8,
+      _asbuilt: true,
     });
 
-    const syncStatus = feature._source === "local" ? "(Unsynced)" : "Synced";
+    const syncStatus = !linePending
+      ? "Synced"
+      : lineAccepted
+        ? "Accepted — awaiting sync"
+        : "(Unsynced)";
     const p = feature.properties;
 
     const formatCondition = (value) => {
@@ -443,7 +464,7 @@ const MapController = (() => {
       </div>
     `;
 
-    if (feature._source === "local") {
+    if (linePending && !lineAccepted) {
       polyline.setStyle({ dashArray: "10, 10", opacity: 0.5 });
     }
     polyline.bindPopup(popupContent, { maxWidth: 300 });
@@ -474,17 +495,10 @@ const MapController = (() => {
 
   const clearAsBuiltLayers = () => {
     if (!map) return;
-    const assetColors = ["#2980b9", "#e74c3c"];
+    const toRemove = [];
     map.eachLayer((layer) => {
-      // Remove asset markers and polylines
-      if (
-        (layer instanceof L.CircleMarker &&
-          assetColors.includes(layer.options.fillColor)) ||
-        (layer instanceof L.Polyline &&
-          !(layer instanceof L.CircleMarker) &&
-          assetColors.includes(layer.options.color))
-      ) {
-        map.removeLayer(layer);
+      if (layer.options && layer.options._asbuilt) {
+        toRemove.push(layer);
         return;
       }
       // Remove cable length labels added by renderSingleAsBuiltLine
@@ -492,9 +506,10 @@ const MapController = (() => {
         layer instanceof L.Marker &&
         layer.options.icon?.options?.className === "cable-length-label"
       ) {
-        map.removeLayer(layer);
+        toRemove.push(layer);
       }
     });
+    toRemove.forEach((l) => map.removeLayer(l));
   };
 
   /**
