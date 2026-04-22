@@ -14,6 +14,72 @@ The application allows field engineers to:
 - Capture detailed inspection data through CNAIM-aligned forms
 - Work entirely offline — all data persists in IndexedDB via Dexie.js
 - Synchronise captured data back to the server on demand via a manual sync badge/button, using an **Action Queue** (transaction log) pattern
+---
+### Quick Start (recommended)
+
+The `run.sh` script resets the database to its default seed state and starts the Flask server in one command:
+
+```bash
+./run.sh
+```
+
+Then, in a second terminal, serve the frontend:
+
+```bash
+cd frontend
+python -m http.server 8080
+```
+
+Open `http://localhost:8080` in your browser. The application is ready to use.
+
+### Step-by-Step Setup
+
+#### 1 — Install Python dependencies
+
+```bash
+cd backend
+pip install -r requirements.txt
+```
+
+#### 2 — Start the backend
+
+```bash
+python app.py
+```
+
+The server starts on `http://127.0.0.1:5000`. On first run it creates `instance/app.db` (SQLite) and seeds it from `work_orders.json` and `database.geojson`.
+
+To reset the database to its original seed state at any time:
+
+```bash
+python app.py --reset
+```
+
+#### 3 — Serve the frontend
+
+Serve the `frontend/` directory over HTTP. The simplest option is VS Code's **Live Server** extension (right-click `index.html` → _Open with Live Server_), or:
+
+```bash
+cd frontend
+python -m http.server 8080
+```
+
+Then open `http://localhost:8080` in a browser.
+
+> **Note:** Service Workers require HTTPS or `localhost`. Opening `index.html` directly via `file://` will not register the Service Worker and offline mode will not work.
+
+### Using the Application
+
+Once both the backend and frontend are running:
+
+1. **Select a work order** — click _Select Work Order_ in the sidebar and choose one of the three seeded job packs. This downloads the work order and its existing assets, caching them for offline use.
+2. **Explore the map** — existing (registered) assets appear as **blue** markers. Planned design assets appear as **black dashed** outlines.
+3. **Add a new asset** — select _Add Pole_ or _Add Transformer_ from the toolbar, then click anywhere on the map. Fill in the CNAIM form and click _Save Asset_. The new asset appears in **red** (unsynced).
+4. **Add a cable** — select _Add Cable Route_, complete the form, then click a start asset followed by an end asset on the map.
+5. **Accept a design asset** — click a black-dashed design asset on the map and press _Accept Design_. Complete the inspection form; the asset moves to solid black (accepted, awaiting sync).
+6. **Edit an existing asset** — click a blue registered asset and press _Edit Asset_. Update any fields and save.
+7. **Sync to the server** — press the **sync badge** (top-right corner) or _Force Sync_ in the sidebar to send all pending changes to the backend.
+8. **Admin dashboard** — visit `http://127.0.0.1:5000/admin` to see a live view of database activity and recent sync actions.
 
 ---
 
@@ -362,82 +428,6 @@ Each asset type has a dedicated form with fields aligned to CNAIM (Common Networ
 - **Python 3.9+** — [python.org](https://www.python.org/downloads/)
 - **pip** — included with Python 3.9+
 - A modern browser (Chrome, Edge, or Firefox) — Safari works but has limited PWA install support on macOS
-
-### Quick Start (recommended)
-
-The `run.sh` script resets the database to its default seed state and starts the Flask server in one command:
-
-```bash
-./run.sh
-```
-
-Then, in a second terminal, serve the frontend:
-
-```bash
-cd frontend
-python -m http.server 8080
-```
-
-Open `http://localhost:8080` in your browser. The application is ready to use.
-
-### Step-by-Step Setup
-
-#### 1 — Install Python dependencies
-
-```bash
-cd backend
-pip install -r requirements.txt
-```
-
-#### 2 — Start the backend
-
-```bash
-python app.py
-```
-
-The server starts on `http://127.0.0.1:5000`. On first run it creates `instance/app.db` (SQLite) and seeds it from `work_orders.json` and `database.geojson`.
-
-To reset the database to its original seed state at any time:
-
-```bash
-python app.py --reset
-```
-
-#### 3 — Serve the frontend
-
-Serve the `frontend/` directory over HTTP. The simplest option is VS Code's **Live Server** extension (right-click `index.html` → *Open with Live Server*), or:
-
-```bash
-cd frontend
-python -m http.server 8080
-```
-
-Then open `http://localhost:8080` in a browser.
-
-> **Note:** Service Workers require HTTPS or `localhost`. Opening `index.html` directly via `file://` will not register the Service Worker and offline mode will not work.
-
-### Using the Application
-
-Once both the backend and frontend are running:
-
-1. **Select a work order** — click *Select Work Order* in the sidebar and choose one of the three seeded job packs. This downloads the work order and its existing assets, caching them for offline use.
-2. **Explore the map** — existing (registered) assets appear as **blue** markers. Planned design assets appear as **black dashed** outlines.
-3. **Add a new asset** — select *Add Pole* or *Add Transformer* from the toolbar, then click anywhere on the map. Fill in the CNAIM form and click *Save Asset*. The new asset appears in **red** (unsynced).
-4. **Add a cable** — select *Add Cable Route*, complete the form, then click a start asset followed by an end asset on the map.
-5. **Accept a design asset** — click a black-dashed design asset on the map and press *Accept Design*. Complete the inspection form; the asset moves to solid black (accepted, awaiting sync).
-6. **Edit an existing asset** — click a blue registered asset and press *Edit Asset*. Update any fields and save.
-7. **Sync to the server** — press the **sync badge** (top-right corner) or *Force Sync* in the sidebar to send all pending changes to the backend.
-8. **Admin dashboard** — visit `http://127.0.0.1:5000/admin` to see a live view of database activity and recent sync actions.
-
-### Installing as a PWA
-
-The application can be installed as a standalone Progressive Web App on desktop or mobile:
-
-- **Chrome / Edge (desktop)** — look for the install icon (⊕) in the browser address bar and click *Install*.
-- **Chrome (Android)** — tap the browser menu and select *Add to Home Screen*.
-- **Safari (iOS)** — tap the Share button and select *Add to Home Screen*.
-
-Once installed, the application launches in its own window without browser chrome and can load fully offline (provided the frontend has been visited at least once while online to populate the Service Worker cache).
 
 ### Running Tests
 
