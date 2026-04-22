@@ -67,9 +67,13 @@ const MapController = (() => {
 
     // Filter out designs that have already been accepted
     const acceptedSet = new Set(acceptedDesignIds);
-    const pendingDesigns = workOrder.design_assets.filter(
-      (f) => !acceptedSet.has(f.id),
-    );
+    const pendingDesigns = workOrder.design_assets
+      .filter((f) => !acceptedSet.has(f.id))
+      .sort((a, b) => {
+        // Lines before points so poles/transformers always render on top of cables
+        const order = { LineString: 0, Point: 1 };
+        return (order[a.geometry.type] ?? 0) - (order[b.geometry.type] ?? 0);
+      });
 
     L.geoJSON(pendingDesigns, {
       style: {
@@ -193,10 +197,10 @@ const MapController = (() => {
           {
             _asbuilt: true,
             icon: L.divIcon({
-              className: "asbuilt-transformer",
-              iconSize: [16, 16],
-              iconAnchor: [8, 8],
-              html: `<div style="width:16px;height:16px;background:${fillCol};border:2px solid ${strokeCol};border-radius:2px;${pending && !isAccepted ? "opacity:0.6;border-style:dashed;" : ""}"></div>`,
+              className: "transformer-marker",
+              iconSize: [12, 12],
+              iconAnchor: [6, 6],
+              html: `<div style="width:12px;height:12px;background:${fillCol};border:2px solid #fff;transform:rotate(45deg);${pending && !isAccepted ? "opacity:0.6;border-style:dashed;" : ""}"></div>`,
             }),
           },
         )
@@ -205,7 +209,7 @@ const MapController = (() => {
           {
             radius: 7,
             fillColor: fillCol,
-            color: strokeCol,
+            color: "#fff",
             weight: 2,
             fillOpacity: 1,
             _asbuilt: true,
