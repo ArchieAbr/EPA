@@ -2,7 +2,7 @@
 // Service Worker — caches static files and map tiles for offline use
 // ============================================================
 
-const CACHE_NAME = "offline-gis-v18";
+const CACHE_NAME = "offline-gis-v19";
 
 // Static files to cache on install (relative to SW scope)
 const STATIC_ASSETS = [
@@ -16,6 +16,7 @@ const STATIC_ASSETS = [
   "./forms.js",
   "./ui.js",
   "./app.js",
+  "./icons/icon-512.png",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
   "https://unpkg.com/dexie@4.0.11/dist/dexie.min.js",
