@@ -52,7 +52,7 @@ The rewrite addresses every issue above by introducing three core changes:
 | Layer              | Technology                             | Purpose                                                                                      |
 | ------------------ | -------------------------------------- | -------------------------------------------------------------------------------------------- |
 | **Service Worker** | sw.js (Cache API)                      | Pre-caches static assets; stale-while-revalidate for map tiles; enables full offline loading |
-| **Map**            | Leaflet.js 1.9.4 + Leaflet.Draw 1.0.4  | Interactive mapping with point/polyline draw tools                                           |
+| **Map**            | Leaflet.js 1.9.4                       | Interactive mapping with custom point/polyline draw tools                                    |
 | **Local Storage**  | IndexedDB via Dexie.js 4.0.11          | Three object stores: work orders, assets, and a sync queue                                   |
 | **API Layer**      | Fetch API (api.js)                     | Thin wrapper around REST calls with timeout/abort handling                                   |
 | **Backend**        | Python Flask 3.1 + SQLAlchemy + SQLite | RESTful API, relational asset register, audit log                                            |
@@ -109,7 +109,7 @@ The application follows a clear three-step workflow that maps directly to how a 
 2. `app.js` calls `API.fetchWorkOrder(id)` to retrieve the work order and `API.fetchWorkOrderAssets(id)` to retrieve existing assets within the work order's geographic bounding box.
 3. Both responses are written into IndexedDB (`local_work_orders` and `local_assets` stores).
 4. If the server is unreachable, the application falls back to whatever is already cached in IndexedDB — the engineer can continue working with stale data.
-5. Design assets (from the work order) are rendered on the map in **dark dashed** style. Existing as-built assets are rendered in **blue solid** style.
+5. Design assets (from the work order) are rendered on the map in **black dashed** style. Existing as-built assets are rendered in **blue solid** style.
 
 #### Step B — Data Capture (Work Offline)
 
@@ -155,7 +155,7 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 | Component           | Technology                     | Version / Source             |
 | ------------------- | ------------------------------ | ---------------------------- |
 | Map rendering       | Leaflet.js                     | 1.9.4 — unpkg CDN            |
-| Draw controls       | Leaflet.Draw                   | 1.0.4 — unpkg CDN            |
+| Draw controls       | Custom click-based tools       | map.js (no third-party lib)  |
 | **Offline storage** | Dexie.js                       | 4.0.11 — unpkg CDN           |
 | Backend API         | Flask + Flask-CORS             | 3.1 — pip (requirements.txt) |
 | ORM                 | Flask-SQLAlchemy               | pip (requirements.txt)       |
@@ -211,16 +211,16 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 ## API Endpoints
 
-| Method | Path                          | Description                                                                                                                          |
-| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET`  | `/api/health`                 | Returns `{ "status": "ok", "boot_id": "..." }` — used by the frontend to detect connectivity and server restarts                     |
-| `GET`  | `/api/workorders`             | Returns all work orders as a JSON array (id, area, status, summary)                                                                  |
-| `GET`  | `/api/workorders/<id>`        | Returns a single work order including its `design_assets` GeoJSON                                                                    |
-| `GET`  | `/api/workorders/<id>/assets` | Returns existing as-built assets filtered to the work order's geographic bounding box                                                |
-| `POST` | `/api/sync`                   | Accepts `{ "actions": [...] }` — processes each action (CREATE / UPDATE / DELETE / ACCEPT) sequentially and writes audit log entries |
-| `GET`  | `/api/audit`                  | Returns the full audit log (most recent first)                                                                                       |
-| `GET`  | `/api/activity`               | Returns database statistics (active assets, decommissioned, work orders, audit entries) and the 50 most recent audit entries         |
-| `GET`  | `/admin`                      | Serves a live activity dashboard that polls `/api/activity` every two seconds                                                        |
+| Method | Path                          | Description                                                                                                                                                                   |
+| ------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/health`                 | Returns `{ "status": "ok", "boot_id": "..." }` — used by the frontend to detect connectivity and server restarts                                                              |
+| `GET`  | `/api/workorders`             | Returns all work orders as a JSON array (`id`, `reference`, `name`, `description`, `status`, `priority`, `assigned_to`, `assigned_date`, `due_date`, `bounds`, `asset_count`) |
+| `GET`  | `/api/workorders/<id>`        | Returns a single work order including its `design_assets` GeoJSON                                                                                                             |
+| `GET`  | `/api/workorders/<id>/assets` | Returns existing as-built assets filtered to the work order's geographic bounding box                                                                                         |
+| `POST` | `/api/sync`                   | Accepts `{ "actions": [...] }` — processes each action (CREATE / UPDATE / DELETE / ACCEPT) sequentially and writes audit log entries                                          |
+| `GET`  | `/api/audit`                  | Returns the audit log, most recent first (limited to 100 entries)                                                                                                             |
+| `GET`  | `/api/activity`               | Returns database statistics (active assets, decommissioned, work orders, audit entries) and the 50 most recent audit entries                                                  |
+| `GET`  | `/admin`                      | Serves a live activity dashboard that polls `/api/activity` every two seconds                                                                                                 |
 
 ### Sync Payload Format
 
@@ -264,42 +264,53 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 **work_orders**
 
-| Column        | Type      | Notes                                         |
-| ------------- | --------- | --------------------------------------------- |
-| id            | TEXT (PK) | e.g. `WR-2025-9901`                           |
-| area          | TEXT      | Geographic area name                          |
-| status        | TEXT      | `open` / `in_progress` / `complete`           |
-| bounds        | JSON      | `[south, west, north, east]` bounding box     |
-| design_assets | JSON      | GeoJSON `FeatureCollection` of planned assets |
+| Column        | Type      | Notes                                                    |
+| ------------- | --------- | -------------------------------------------------------- |
+| id            | TEXT (PK) | e.g. `WR-2026-0401`                                      |
+| reference     | TEXT      | Human-readable reference code                            |
+| name          | TEXT      | Descriptive name of the work order                       |
+| description   | TEXT      | Full job description (nullable)                          |
+| status        | TEXT      | `assigned` / `in_progress` / `complete`                  |
+| priority      | TEXT      | e.g. `normal` / `high`                                   |
+| assigned_to   | TEXT      | Engineer name (nullable)                                 |
+| assigned_date | TEXT      | ISO-8601 date string (nullable)                          |
+| due_date      | TEXT      | ISO-8601 date string (nullable)                          |
+| bounds        | JSON      | `{center, zoom, minZoom, maxBounds}` map viewport config |
+| design_assets | JSON      | Array of GeoJSON features representing planned assets    |
+| created_at    | DATETIME  | UTC timestamp                                            |
+| updated_at    | DATETIME  | UTC timestamp                                            |
 
 **assets**
 
-| Column        | Type      | Notes                                                      |
-| ------------- | --------- | ---------------------------------------------------------- |
-| id            | TEXT (PK) | e.g. `ASSET-001` or `WR-2025-9901-<timestamp>`             |
-| work_order_id | TEXT      | Foreign key to `work_orders.id` (nullable for seed assets) |
-| geometry      | JSON      | GeoJSON geometry object                                    |
-| properties    | JSON      | All captured attributes                                    |
-| created_at    | DATETIME  | UTC timestamp                                              |
-| updated_at    | DATETIME  | UTC timestamp                                              |
+| Column     | Type      | Notes                                          |
+| ---------- | --------- | ---------------------------------------------- |
+| id         | TEXT (PK) | e.g. `ASSET-001` or `WR-2026-0401-<timestamp>` |
+| asset_type | TEXT      | `Pole` / `Transformer` / `Cable`               |
+| geometry   | JSON      | GeoJSON geometry object                        |
+| properties | JSON      | All captured field attributes                  |
+| status     | TEXT      | `active` / `decommissioned`                    |
+| created_at | DATETIME  | UTC timestamp                                  |
+| updated_at | DATETIME  | UTC timestamp                                  |
 
 **audit_log**
 
-| Column    | Type         | Notes                                  |
-| --------- | ------------ | -------------------------------------- |
-| id        | INTEGER (PK) | Auto-increment                         |
-| asset_id  | TEXT         | The asset that was affected            |
-| action    | TEXT         | `CREATE` / `UPDATE` / `DELETE`         |
-| payload   | JSON         | Snapshot of the data at time of action |
-| timestamp | DATETIME     | UTC timestamp                          |
+| Column        | Type         | Notes                                        |
+| ------------- | ------------ | -------------------------------------------- |
+| id            | INTEGER (PK) | Auto-increment                               |
+| action        | TEXT         | `CREATE` / `UPDATE` / `DELETE` / `ACCEPT`    |
+| asset_id      | TEXT         | The asset that was affected                  |
+| work_order_id | TEXT         | Associated work order (nullable)             |
+| engineer      | TEXT         | Engineer identifier (nullable)               |
+| payload       | JSON         | Snapshot of the full action at time of entry |
+| created_at    | DATETIME     | UTC timestamp                                |
 
 ### IndexedDB Stores (Frontend)
 
-| Store               | Key           | Indexes         | Purpose                                     |
-| ------------------- | ------------- | --------------- | ------------------------------------------- |
-| `local_work_orders` | `id`          | —               | Cached work order data for offline access   |
-| `local_assets`      | `id`          | `work_order_id` | Cached + locally-created assets             |
-| `sync_queue`        | `++id` (auto) | —               | Ordered action log awaiting synchronisation |
+| Store               | Key           | Indexes                               | Purpose                                     |
+| ------------------- | ------------- | ------------------------------------- | ------------------------------------------- |
+| `local_work_orders` | `id`          | —                                     | Cached work order data for offline access   |
+| `local_assets`      | `id`          | `work_order_id`                       | Cached + locally-created assets             |
+| `sync_queue`        | `++id` (auto) | `action`, `asset_id`, `work_order_id` | Ordered action log awaiting synchronisation |
 
 ---
 
@@ -433,7 +444,7 @@ This executes 18 integration tests covering Dexie connectivity, sync queue opera
 | **Action Queue**           | An ordered list of discrete operations (CREATE, UPDATE, DELETE) stored in IndexedDB and replayed on the server during synchronisation. Also known as a transaction log or event log. |
 | **As-built**               | An asset that physically exists on site, as opposed to a design asset which only exists on paper.                                                                                    |
 | **CNAIM**                  | Common Network Asset Indices Methodology — the UK standard for condition-based risk assessment of electricity distribution assets.                                                   |
-| **Design asset**           | A planned asset from the work order that has not yet been constructed. Rendered on the map in grey dashed style.                                                                     |
+| **Design asset**           | A planned asset from the work order that has not yet been constructed. Rendered on the map in black dashed style.                                                                    |
 | **Last-writer-wins**       | A conflict resolution strategy where the most recent write overwrites any previous value. Simple but effective for single-user field capture.                                        |
 | **Stale-while-revalidate** | A caching strategy where the cached version is served immediately whilst a fresh copy is fetched in the background for next time.                                                    |
 | **Work order**             | A job pack issued to a field engineer, containing a geographic area and a set of design assets to be surveyed or constructed.                                                        |
@@ -444,18 +455,18 @@ This executes 18 integration tests covering Dexie connectivity, sync queue opera
 
 ### Blackline Acceptance
 
-Engineers can now accept proposed (blackline) design assets directly from the map. Clicking a design asset's popup reveals an **Accept Design** button. Before the asset is committed to the register, the CNAIM inspection form opens so the engineer can record condition data at the point of acceptance. On save, the asset is removed from the design layer, queued as an `ACCEPT` sync action, and immediately rendered in **dark solid** style (awaiting sync). The backend updates the work order's `design_assets` JSON to mark the item as accepted, preventing it from reappearing.
+Engineers can now accept proposed (blackline) design assets directly from the map. Clicking a design asset's popup reveals an **Accept Design** button. Before the asset is committed to the register, the CNAIM inspection form opens so the engineer can record condition data at the point of acceptance. On save, the asset is removed from the design layer, queued as an `ACCEPT` sync action, and immediately rendered in **black solid** style (awaiting sync). The backend updates the work order's `design_assets` JSON to mark the item as accepted, preventing it from reappearing.
 
 ### Asset Colour Differentiation
 
 Map assets use a four-state colour and style system to communicate their status at a glance:
 
-| State                           | Colour         | Style  | Description                                              |
-| ------------------------------- | -------------- | ------ | -------------------------------------------------------- |
-| **Planned design**              | Dark (#2c3e50) | Dashed | Asset exists only in the work order; not yet constructed |
-| **Accepted — awaiting sync**    | Dark (#2c3e50) | Solid  | Accepted from design by engineer; not yet synced         |
-| **New capture — awaiting sync** | Red (#e74c3c)  | Dashed | Newly placed by engineer in the field; not yet synced    |
-| **Registered**                  | Blue (#2980b9) | Solid  | Confirmed and stored in the server register              |
+| State                           | Colour          | Style  | Description                                              |
+| ------------------------------- | --------------- | ------ | -------------------------------------------------------- |
+| **Planned design**              | Black (#2c3e50) | Dashed | Asset exists only in the work order; not yet constructed |
+| **Accepted — awaiting sync**    | Black (#2c3e50) | Solid  | Accepted from design by engineer; not yet synced         |
+| **New capture — awaiting sync** | Red (#e74c3c)   | Dashed | Newly placed by engineer in the field; not yet synced    |
+| **Registered**                  | Blue (#2980b9)  | Solid  | Confirmed and stored in the server register              |
 
 A **Map Key** panel in the sidebar summarises these states for quick reference in the field.
 
@@ -483,7 +494,7 @@ A **Clear Local Data** button in the sidebar's Actions panel wipes the browser's
 
 ### Map Key
 
-A collapsible **Map Key** panel has been added to the sidebar below the Developer Tools section. It displays colour swatches and shape indicators for all four asset states (registered, unsynced capture, accepted/planned, pole circle, transformer square), giving field engineers an at-a-glance legend without needing to leave the map view.
+A collapsible **Map Key** panel has been added to the sidebar below the Developer Tools section. It displays colour swatches and shape indicators for all four asset states (registered, unsynced capture, accepted/planned, pole circle, transformer diamond), giving field engineers an at-a-glance legend without needing to leave the map view.
 
 ### Cable Drawing Workflow
 
@@ -499,6 +510,22 @@ Asset popups are suppressed while cable drawing is active, so clicking a pole to
 ### Cable Length Labels
 
 Built-as-laid (red) cables now display their calculated length at the midpoint of the line, matching the behaviour that already existed for design cables.
+
+#### Length Calculation
+
+Cable lengths are calculated in plain JavaScript using the **Haversine formula** — no third-party library is used. The implementation lives in `frontend/map.js` (`haversineDistance` and `calculateLineLength`).
+
+The Haversine formula calculates the great-circle distance between two GPS coordinates on the surface of the Earth, modelled as a sphere with radius $R = 6{,}371{,}000\text{ m}$:
+
+$$a = \sin^2\!\left(\frac{\Delta\phi}{2}\right) + \cos\phi_1 \cdot \cos\phi_2 \cdot \sin^2\!\left(\frac{\Delta\lambda}{2}\right)$$
+
+$$c = 2 \cdot \text{atan2}\!\left(\sqrt{a},\, \sqrt{1-a}\right) \qquad d = R \cdot c$$
+
+where $\phi$ is latitude and $\lambda$ is longitude, both in radians. For a multi-segment cable (a `LineString` with more than two vertices), `calculateLineLength` sums the Haversine distance across every consecutive pair of points.
+
+The calculation is **horizontal only** — it does not account for the height difference between poles or cable sag. For the spans typical of LV distribution networks (30–80 m), this is an acceptable approximation. A production system could extend the formula to three dimensions by storing a `z` altitude value on each GeoJSON coordinate and computing $d_{3D} = \sqrt{d_{horizontal}^2 + \Delta h^2}$ per segment, though GPS altitude error (±10–30 m) would need to be considered.
+
+Results are displayed as metres below 1 km and kilometres (to 2 decimal places) above.
 
 ### Shell Script
 

@@ -86,15 +86,16 @@ html {
 .key-square {
   flex-shrink: 0;
   display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+  transform: rotate(45deg);
 }
 /* Colours */
-.key-blue { background: #2980b9; }
-.key-red  { background: #e74c3c; }
-.key-dark { background: #000000; }
-.key-mid  { background: #7f8c8d; }
+.key-blue  { background: #2980b9; }
+.key-red   { background: #e74c3c; }
+.key-black { background: #000000; }
+.key-mid   { background: #7f8c8d; }
 
 .menu-title {
   font-size: 0.85rem;

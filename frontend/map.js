@@ -184,10 +184,10 @@ const MapController = (() => {
       ).toLowerCase() === "transformer";
 
     const pending = feature._source === "local";
-    // Accepted design assets are confirmed but not yet synced — show as solid dark
+    // Accepted design assets are confirmed but not yet synced — show as solid black
     const isAccepted = pending && !!feature.properties.accepted_from_design;
 
-    // Registered (synced) = blue | accepted design (unsynced) = dark | new capture (unsynced) = red
+    // Registered (synced) = blue | accepted design (unsynced) = black | new capture (unsynced) = red
     const fillCol = !pending ? "#2980b9" : isAccepted ? "#2c3e50" : "#e74c3c";
     const strokeCol = !pending ? "#2471a3" : isAccepted ? "#1a252f" : "#c0392b";
 
@@ -371,7 +371,7 @@ const MapController = (() => {
     const lineAccepted =
       linePending && !!feature.properties.accepted_from_design;
 
-    // Registered (synced) = blue | accepted design (unsynced) = dark | new capture (unsynced) = red
+    // Registered (synced) = blue | accepted design (unsynced) = black | new capture (unsynced) = red
     const lineCol = !linePending
       ? "#2980b9"
       : lineAccepted
