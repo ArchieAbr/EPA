@@ -52,6 +52,50 @@ html {
 .menu-group {
   padding: 20px;
 }
+
+/* ── Map Key ── */
+.map-key {
+  border-top: 1px solid #1a252f;
+}
+.key-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 7px;
+  font-size: 0.82rem;
+  color: #bdc3c7;
+}
+.key-divider {
+  border-top: 1px solid #1a252f;
+  margin: 8px 0;
+}
+.key-swatch {
+  flex-shrink: 0;
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.key-circle {
+  flex-shrink: 0;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+.key-square {
+  flex-shrink: 0;
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+}
+/* Colours */
+.key-blue { background: #2980b9; }
+.key-red  { background: #e74c3c; }
+.key-dark { background: #000000; }
+.key-mid  { background: #7f8c8d; }
+
 .menu-title {
   font-size: 0.85rem;
   text-transform: uppercase;
