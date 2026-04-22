@@ -95,8 +95,9 @@ const UI = (() => {
   };
 
   // Modal + form controls
-  const openAssetModal = (assetType) => {
-    document.getElementById("modal-title").textContent = `New ${assetType}`;
+  const openAssetModal = (assetType, titleOverride) => {
+    document.getElementById("modal-title").textContent =
+      titleOverride || `New ${assetType}`;
     document.getElementById("asset-modal").classList.add("active");
 
     const container = document.getElementById("form-fields-container");
@@ -128,6 +129,9 @@ const UI = (() => {
     AppState.pendingAssetGeometry = null;
     AppState.pendingAssetType = null;
     AppState.pendingPhotoBase64 = null;
+    AppState.editingAssetId = null;
+    AppState.pendingAcceptDesignId = null;
+    AppState.pendingAcceptDesignFeature = null;
   };
 
   // Traffic lights
@@ -307,6 +311,109 @@ const UI = (() => {
     }, durationMs);
   };
 
+  /**
+   * Pre-populate the currently open asset form with existing property values.
+   * Call this after openAssetModal() has rendered the blank template.
+   */
+  const populateAssetForm = (assetType, p) => {
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) el.value = val;
+    };
+
+    const setTrafficLight = (fieldName, value) => {
+      const container = document.querySelector(
+        `.traffic-light[data-field="${fieldName}"]`,
+      );
+      if (!container || !value) return;
+      container.querySelectorAll(".traffic-light-btn").forEach((btn) => {
+        btn.classList.toggle("selected", btn.dataset.value === value);
+      });
+    };
+
+    const setGrade = (fieldName, value) => {
+      const container = document.querySelector(
+        `.grade-selector[data-field="${fieldName}"]`,
+      );
+      if (!container || !value) return;
+      container.querySelectorAll(".grade-btn").forEach((btn) => {
+        btn.classList.toggle(
+          "selected",
+          parseInt(btn.dataset.value) === parseInt(value),
+        );
+      });
+    };
+
+    // Name — common to all types
+    setVal("asset-name", p.name);
+
+    if (assetType === "Pole") {
+      setVal("material", p.material);
+      setVal("treatment", p.treatment);
+      setVal("stoutness", p.stoutness);
+      setVal("height", p.height);
+      setVal("transformers", p.transformers);
+      setTrafficLight("topRot", p.topRot);
+      setTrafficLight("externalRot", p.externalRot);
+      setTrafficLight("birdDamage", p.birdDamage);
+      setVal("verticality", p.verticality);
+      setTrafficLight("steelCorrosion", p.steelCorrosion);
+      setVal("soundTest", p.soundTest);
+    } else if (assetType === "Transformer") {
+      setVal("tx-mounting", p.mounting);
+      // Re-trigger GMT section visibility
+      const mountingEl = document.getElementById("tx-mounting");
+      if (mountingEl) mountingEl.dispatchEvent(new Event("change"));
+      setVal("tx-rating", p.rating);
+      setVal("tx-manufacturer", p.manufacturer);
+      setVal("tx-serial", p.serialNo);
+      setVal("tx-year", p.yearOfManufacture);
+      setVal("tx-cooling", p.coolingMedium);
+      setVal("tx-breather", p.breatherType);
+      setGrade("tx-tankGrade", p.tankGrade);
+      const tankIssues = p.tankIssues || {};
+      const setChk = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!val;
+      };
+      setChk("tx-surfaceRust", tankIssues.surfaceRust);
+      setChk("tx-pitting", tankIssues.pitting);
+      setChk("tx-weepingOil", tankIssues.weepingOil);
+      setChk("tx-activeLeak", tankIssues.activeLeak);
+      setGrade("tx-finsGrade", p.finsGrade);
+      setVal("tx-bushings", p.bushings);
+      setVal("tx-silicaGel", p.silicaGel);
+      setVal("tx-oilLevel", p.oilLevel);
+      setVal("tx-oilAcidity", p.oilAcidity);
+      setVal("tx-moisture", p.moistureContent);
+      setVal("tx-breakdown", p.breakdownStrength);
+      setVal("tx-bunding", p.bunding);
+      setVal("tx-watercourse", p.watercourseProximity);
+    } else if (assetType === "Cable") {
+      setVal("cable-voltage", p.voltageLevel);
+      setVal("cable-type", p.cableType);
+      setVal("cable-conductor", p.conductorMaterial);
+      setVal("cable-csa", p.crossSectionalArea);
+      setVal("cable-cores", p.cores);
+      setVal("cable-year", p.installationYear);
+      setVal("cable-duty", p.dutyFactor);
+      setVal("cable-situation", p.situation);
+      setVal("cable-topography", p.topography);
+      setTrafficLight("cable-sheath", p.sheathCondition);
+      setTrafficLight("cable-joints", p.jointCondition);
+      setVal("cable-joints-count", p.jointsCount);
+      setVal("cable-faults", p.historicalFaults);
+      const ki = p.knownIssues || {};
+      const setChk = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!val;
+      };
+      setChk("cable-thirdParty", ki.thirdPartyDamageRisk);
+      setChk("cable-partialDischarge", ki.partialDischarge);
+      setChk("cable-thermal", ki.thermalIssues);
+    }
+  };
+
   return {
     showWorkOrderSelector,
     hideWorkOrderSelector,
@@ -333,6 +440,7 @@ const UI = (() => {
     hideCableDrawingBanner,
     clearPopup,
     showToast,
+    populateAssetForm,
   };
 })();
 

@@ -7,6 +7,7 @@ window.activateTool = activateTool;
 window.openWorkOrderSelector = openWorkOrderSelector;
 window.saveAssetForm = saveAssetForm;
 window.deleteAsset = deleteAsset;
+window.editAsset = editAsset;
 window.acceptDesignAsset = acceptDesignAsset;
 window.cancelCableDrawing = cancelCableDrawing;
 window.clearLocalData = clearLocalData;
@@ -247,12 +248,73 @@ async function saveAssetForm(evt) {
   }
 
   // ── Cable form-first: save properties now, then enter drawing mode ──
-  if (assetType === "Cable" && !AppState.pendingAssetGeometry) {
+  // (Only when not accepting a design — designs already have geometry)
+  if (
+    assetType === "Cable" &&
+    !AppState.pendingAssetGeometry &&
+    !AppState.pendingAcceptDesignId
+  ) {
     AppState.pendingCableProperties = buildProperties("Cable", form);
     UI.closeAssetModal();
     UI.setMapCursor("crosshair");
     UI.showCableDrawingBanner();
     console.log("Cable properties saved — click two assets to draw the cable.");
+    return false;
+  }
+
+  // ── Accepting a design asset: form provides CNAIM data ──
+  if (AppState.pendingAcceptDesignId) {
+    const designId = AppState.pendingAcceptDesignId;
+    const designFeature = AppState.pendingAcceptDesignFeature;
+    const wo = AppState.currentWorkOrder;
+
+    const properties = {
+      ...designFeature.properties,
+      ...buildProperties(assetType, form),
+      assetType,
+      status: "As-Built",
+      accepted_from_design: designId,
+      accepted_at: new Date().toISOString(),
+    };
+
+    const asset = {
+      id: designId,
+      type: "Feature",
+      properties,
+      geometry: designFeature.geometry,
+      work_order_id: wo.id,
+      _source: "local",
+    };
+
+    await DB.putAsset(asset);
+    await DB.queueAction({
+      action: "ACCEPT",
+      asset_id: designId,
+      work_order_id: wo.id,
+      asset_type: assetType,
+      geometry: designFeature.geometry,
+      properties,
+      design_id: designId,
+    });
+
+    if (!wo.accepted_designs) wo.accepted_designs = [];
+    if (!wo.accepted_designs.includes(designId))
+      wo.accepted_designs.push(designId);
+    await DB.saveWorkOrder(wo);
+
+    const acceptedIds = wo.accepted_designs || [];
+    MapController.renderJobPackLayers(wo, acceptedIds);
+    await renderLocalAssets();
+    await updateSyncBadge();
+
+    // Clear accept state
+    AppState.pendingAcceptDesignId = null;
+    AppState.pendingAcceptDesignFeature = null;
+    AppState.pendingAssetGeometry = null;
+    AppState.pendingAssetType = null;
+
+    UI.closeAssetModal();
+    console.log(`Design '${designId}' accepted as as-built asset.`);
     return false;
   }
 
@@ -303,7 +365,7 @@ async function saveAssetForm(evt) {
 function buildProperties(assetType, form) {
   if (assetType === "Transformer") {
     return {
-      name: `New ${assetType}`,
+      name: form["asset-name"]?.value?.trim() || `New ${assetType}`,
       assetType,
       status: "As-Built",
       created_at: new Date().toISOString(),
@@ -336,7 +398,7 @@ function buildProperties(assetType, form) {
 
   if (assetType === "Cable") {
     return {
-      name: `New ${assetType}`,
+      name: form["asset-name"]?.value?.trim() || `New ${assetType}`,
       assetType,
       status: "As-Built",
       created_at: new Date().toISOString(),
@@ -364,7 +426,7 @@ function buildProperties(assetType, form) {
 
   // Default: Pole
   return {
-    name: `New ${assetType}`,
+    name: form["asset-name"]?.value?.trim() || `New ${assetType}`,
     assetType,
     status: "As-Built",
     created_at: new Date().toISOString(),
@@ -412,12 +474,40 @@ async function deleteAsset(assetId) {
   console.log(`Asset ${assetId} deleted (queued for sync).`);
 }
 
+// ──────────────────── Edit Asset ────────────────────
+
+/**
+ * Open the CNAIM form modal pre-populated with an existing asset's data.
+ * Works for both server-sourced (blue) and locally-created (red) assets.
+ */
+async function editAsset(assetId) {
+  const asset = await DB.getAsset(String(assetId));
+  if (!asset) {
+    console.error(`editAsset: asset '${assetId}' not found in local cache`);
+    return;
+  }
+
+  const p = asset.properties;
+  const assetType = p.assetType || p.asset_type || "Pole";
+
+  // Prepare editing state
+  AppState.editingAssetId = String(assetId);
+  AppState.pendingAssetGeometry = asset.geometry;
+  AppState.pendingAssetType = assetType;
+
+  // Open the modal (renders the blank template)
+  UI.openAssetModal(assetType, `Edit ${p.name || assetType}`);
+
+  // Populate the form with existing values
+  UI.populateAssetForm(assetType, p);
+}
+
 // ──────────────────── Accept Design Asset ────────────────────
 
 /**
  * Accept a blackline (proposed) design asset, converting it to an as-built asset.
- * The design feature is looked up from the current work order's design_assets by ID,
- * then saved to IndexedDB as a local asset and queued for sync.
+ * Opens the CNAIM form pre-filled from the design's properties so the engineer
+ * can add inspection data before the asset is committed.
  */
 async function acceptDesignAsset(designId) {
   const wo = AppState.currentWorkOrder;
@@ -426,7 +516,6 @@ async function acceptDesignAsset(designId) {
     return;
   }
 
-  // Find the design feature by its ID
   const designFeature = wo.design_assets.find((f) => f.id === designId);
   if (!designFeature) {
     console.error(`Design asset '${designId}' not found in work order.`);
@@ -436,57 +525,32 @@ async function acceptDesignAsset(designId) {
   const assetType =
     designFeature.properties.asset_type ||
     designFeature.properties.type ||
-    "Unknown";
+    "Pole";
 
-  // Build the as-built asset from the design
-  const asset = {
-    id: designId,
-    type: "Feature",
-    properties: {
-      ...designFeature.properties,
-      status: "As-Built",
-      accepted_from_design: designId,
-      accepted_at: new Date().toISOString(),
-    },
-    geometry: designFeature.geometry,
-    work_order_id: wo.id,
-    _source: "local",
-  };
+  // Store the design context so saveAssetForm knows to queue ACCEPT
+  AppState.pendingAcceptDesignId = designId;
+  AppState.pendingAcceptDesignFeature = designFeature;
 
-  // Normalise the assetType key so renderers pick it up correctly
-  if (!asset.properties.assetType && asset.properties.asset_type) {
-    asset.properties.assetType = asset.properties.asset_type;
+  // Open the form as if creating a new asset of this type
+  AppState.pendingAssetGeometry = designFeature.geometry;
+  AppState.pendingAssetType = assetType;
+  AppState.editingAssetId = null;
+
+  // Capitalise first letter to match form template key (Pole / Transformer / Cable)
+  const formKey =
+    assetType.charAt(0).toUpperCase() + assetType.slice(1).toLowerCase();
+  UI.openAssetModal(
+    formKey,
+    `Accept Design — ${designFeature.properties.name || assetType}`,
+  );
+
+  // Pre-fill name from the design asset's name if available
+  const nameInput = document.getElementById("asset-name");
+  if (nameInput && designFeature.properties.name) {
+    nameInput.value = designFeature.properties.name;
   }
-
-  // 1. Persist the as-built asset in IndexedDB
-  await DB.putAsset(asset);
-
-  // 2. Queue an ACCEPT sync action
-  await DB.queueAction({
-    action: "ACCEPT",
-    asset_id: designId,
-    work_order_id: wo.id,
-    asset_type: assetType,
-    geometry: designFeature.geometry,
-    properties: asset.properties,
-    design_id: designId,
-  });
-
-  // 3. Track accepted design IDs in the cached work order
-  if (!wo.accepted_designs) wo.accepted_designs = [];
-  if (!wo.accepted_designs.includes(designId)) {
-    wo.accepted_designs.push(designId);
-  }
-  await DB.saveWorkOrder(wo);
-
-  // 4. Re-render: remove accepted design from grey layer, show as blue as-built
-  const acceptedIds = wo.accepted_designs || [];
-  MapController.renderJobPackLayers(wo, acceptedIds);
-  await renderLocalAssets();
-  await updateSyncBadge();
 
   MapController.getMap()?.closePopup();
-  console.log(`Design '${designId}' accepted as as-built asset.`);
 }
 
 // ──────────────────── Clear Local Data ────────────────────

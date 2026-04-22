@@ -8,10 +8,12 @@ The application allows field engineers to:
 
 - Load a job pack (work order) containing design assets for a given area
 - Navigate to site via an interactive Leaflet map
-- Place and edit as-built assets (poles, transformers, cables)
+- Place new as-built assets (poles, transformers, cables) and give each a meaningful name
+- Edit existing registered assets directly on the map, with CNAIM inspection forms pre-filled from stored data
+- Accept planned design assets — filling in full CNAIM inspection data before committing them to the register
 - Capture detailed inspection data through CNAIM-aligned forms
 - Work entirely offline — all data persists in IndexedDB via Dexie.js
-- Synchronise captured data back to the server automatically when connectivity is restored, using an **Action Queue** (transaction log) pattern
+- Synchronise captured data back to the server on demand via a manual sync badge/button, using an **Action Queue** (transaction log) pattern
 
 ---
 
@@ -111,25 +113,32 @@ The application follows a clear three-step workflow that maps directly to how a 
 
 #### Step B — Data Capture (Work Offline)
 
-1. The engineer places a new asset or edits an existing one. The CNAIM-aligned form modal collects inspection data.
-2. On save, the asset is written to `local_assets` in IndexedDB **and** an action object is appended to the `sync_queue`:
+1. **New asset** — the engineer taps the map to place a pole or transformer, or draws a cable between two points. A CNAIM-aligned form modal opens; all fields (including the asset name) are filled in before saving.
+2. **Edit existing asset** — tapping a blue (registered) asset opens a popup with an **Edit Asset** button. The CNAIM form opens pre-filled with the asset's stored data. On save, the updated properties replace the previous values.
+3. **Accept design asset** — tapping a black-dashed design asset opens a popup with an **Accept Design** button. Before the asset is committed to the register, the CNAIM inspection form opens so the engineer can record condition data at the point of acceptance.
+4. **Delete asset** — removes the asset from `local_assets` and appends a `DELETE` action to the queue.
+5. On save, every change is written to `local_assets` in IndexedDB **and** an action object is appended to the `sync_queue`:
    ```json
-   { "action": "CREATE", "asset_id": "WR-2025-9901-1748302841649", "geometry": { ... }, "properties": { ... } }
+   { "action": "CREATE", "asset_id": "WR-2025-9901-1748302841649", "geometry": { ... }, "properties": { "name": "Hyde Park Pole A", ... } }
    ```
-3. Deleting an asset removes it from `local_assets` **and** appends a `DELETE` action to the queue.
-4. The sync badge in the top-right corner displays the current queue depth (e.g. "3 pending").
+6. The sync badge in the top-right corner displays the current queue depth (e.g. "3 pending").
 
-#### Step C — Synchronisation (Reconnect → Replay)
+#### Step C — Synchronisation (Manual Replay)
 
-1. A background health check pings `GET /api/health` every 5 seconds.
-2. When connectivity is restored and the queue is non-empty, `syncOfflineChanges()` fires automatically.
-3. The entire `sync_queue` array is sent in a single `POST /api/sync` request.
-4. The server processes each action sequentially:
+1. A background health check pings `GET /api/health` every 5 seconds to track connectivity status.
+2. The sync badge in the top-right corner shows the number of pending actions. The engineer presses the badge (or the **Force Sync** button in the sidebar) to trigger synchronisation manually.
+3. If the server is unreachable, the sync is blocked with a toast notification — no actions are lost.
+4. The entire `sync_queue` array is sent in a single `POST /api/sync` request.
+5. The server processes each action sequentially:
    - **CREATE** → inserts a new row into the `assets` table and writes an audit log entry.
    - **UPDATE** → overwrites geometry/properties on the existing row and logs the change.
    - **DELETE** → soft-deletes the asset (sets status to `decommissioned`) and logs the deletion.
    - **ACCEPT** → creates a new as-built asset from a design asset and marks the corresponding entry in the work order's `design_assets` as accepted.
-5. On a successful `200` response, the local `sync_queue` is cleared and the badge resets to zero.
+6. On a successful `200` response, the local `sync_queue` is cleared, the badge resets to zero, and the current work order is reloaded from the server so the map immediately reflects the synced state.
+
+### Server-Restart Detection
+
+The health-check response includes a `boot_id` — a timestamp generated when the Flask process starts. If the frontend detects a new `boot_id`, it knows the server has restarted and clears its locally cached work order and asset data so stale references cannot cause conflicts. The sync queue is intentionally **preserved** through restarts so that any pending offline actions are not lost.
 
 ### Conflict Resolution: Last-Writer-Wins
 
@@ -143,16 +152,16 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 ## Technologies
 
-| Component       | Technology                     | Version / Source             |
-| --------------- | ------------------------------ | ---------------------------- |
-| Map rendering   | Leaflet.js                     | 1.9.4 — unpkg CDN            |
-| Draw controls   | Leaflet.Draw                   | 1.0.4 — unpkg CDN            |
-| Offline storage | Dexie.js                       | 4.0.11 — unpkg CDN           |
-| Backend API     | Flask + Flask-CORS             | 3.1 — pip (requirements.txt) |
-| ORM             | Flask-SQLAlchemy               | pip (requirements.txt)       |
-| Database        | SQLite                         | Built-in (Python stdlib)     |
-| PWA support     | Service Worker + manifest.json | Native browser APIs          |
-| Styling         | Custom CSS                     | styles.css                   |
+| Component           | Technology                     | Version / Source             |
+| ------------------- | ------------------------------ | ---------------------------- |
+| Map rendering       | Leaflet.js                     | 1.9.4 — unpkg CDN            |
+| Draw controls       | Leaflet.Draw                   | 1.0.4 — unpkg CDN            |
+| **Offline storage** | Dexie.js                       | 4.0.11 — unpkg CDN           |
+| Backend API         | Flask + Flask-CORS             | 3.1 — pip (requirements.txt) |
+| ORM                 | Flask-SQLAlchemy               | pip (requirements.txt)       |
+| Database            | SQLite                         | Built-in (Python stdlib)     |
+| PWA support         | Service Worker + manifest.json | Native browser APIs          |
+| Styling             | Custom CSS                     | styles.css                   |
 
 ---
 
@@ -187,16 +196,16 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 ### Frontend Module Responsibilities
 
-| Module       | Responsibility                                                                                                                                                                                   |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **app.js**   | Top-level orchestrator. Wires together all other modules. Implements the three-step workflow, auto-sync timer, and sync badge updates.                                                           |
-| **db.js**    | All IndexedDB access via Dexie.js. Exposes CRUD methods for work orders, assets, and sync queue entries. No business logic.                                                                      |
-| **api.js**   | All HTTP communication. Exposes `fetchWorkOrders`, `fetchWorkOrder`, `fetchWorkOrderAssets`, `sync`, and `healthCheck`. Returns parsed JSON or throws.                                           |
-| **state.js** | Shared configuration (`API_BASE`) and mutable application state (`currentWorkOrder`, `currentTool`, `isServerReachable`, `pendingSyncCount`).                                                    |
-| **map.js**   | Leaflet map initialisation, tile layer, draw controls, design/as-built layer rendering. Exports `MapController` with methods like `renderDesignAssets`, `renderLocalAssets`, `clearLayers`.      |
-| **ui.js**    | DOM manipulation for the sidebar, toolbar, modal, work order list, and sync badge. No data logic.                                                                                                |
-| **forms.js** | Pure HTML template functions for each asset type. Returns markup strings consumed by `ui.js` and `app.js`.                                                                                       |
-| **sw.js**    | Service Worker. Pre-caches the static shell on install. Intercepts fetch requests: cache-first for static files, stale-while-revalidate for OpenStreetMap tiles, network-only for `/api/` calls. |
+| Module       | Responsibility                                                                                                                                                                                                                                                                                                       |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **app.js**   | Top-level orchestrator. Wires together all other modules. Implements the three-step workflow (provision, capture, sync), asset naming, edit-existing, accept-design, delete, manual sync trigger, and sync badge updates.                                                                                            |
+| **db.js**    | All IndexedDB access via Dexie.js. Exposes CRUD methods for work orders, assets, and sync queue entries. No business logic.                                                                                                                                                                                          |
+| **api.js**   | All HTTP communication. Exposes `fetchWorkOrders`, `fetchWorkOrder`, `fetchWorkOrderAssets`, `sync`, and `healthCheck`. Returns parsed JSON or throws.                                                                                                                                                               |
+| **state.js** | Shared configuration (`API_BASE`) and mutable application state (`currentWorkOrder`, `currentTool`, `isServerReachable`, `pendingSyncCount`).                                                                                                                                                                        |
+| **map.js**   | Leaflet map initialisation, tile layer, draw controls, design/as-built layer rendering. Asset popups include Edit Asset / Delete Asset (blue registered assets) and Accept Design (black-dashed design assets). Exports `MapController` with methods like `renderJobPackLayers`, `renderLocalAssets`, `clearLayers`. |
+| **ui.js**    | DOM manipulation for the sidebar, toolbar, modal, work order list, and sync badge. Includes `populateAssetForm()` which pre-fills all form fields from an existing property object. No data logic.                                                                                                                   |
+| **forms.js** | Pure HTML template functions for each asset type. Returns markup strings consumed by `ui.js` and `app.js`.                                                                                                                                                                                                           |
+| **sw.js**    | Service Worker. Pre-caches the static shell on install. Intercepts fetch requests: cache-first for static files, stale-while-revalidate for OpenStreetMap tiles, network-only for `/api/` calls.                                                                                                                     |
 
 ---
 
@@ -310,7 +319,7 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 2. Map tiles that have been previously viewed are served from the tile cache. Unvisited areas show grey placeholders.
 3. The health-check timer (`GET /api/health` every 5 seconds) detects the loss of connectivity and sets `AppState.isServerReachable = false`.
 4. All data capture continues as normal — assets are saved to IndexedDB and actions are appended to the sync queue.
-5. When connectivity returns, the health check succeeds, the sync queue is automatically flushed, and the badge resets.
+5. When connectivity returns, the health check updates the status indicator. The engineer presses the sync badge to flush the queue manually.
 
 ---
 
@@ -318,17 +327,19 @@ The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the
 
 Each asset type has a dedicated form with fields aligned to CNAIM (Common Network Asset Indices Methodology) standards:
 
-| Asset           | Form Sections                                                                                                                                                                                                                                                                                                                          |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Pole**        | Core Specification (Material, Treatment, Stoutness, Height, Transformers), Inspection/Condition (Top Rot, External Rot, Bird Damage, Verticality, Steel Corrosion, Sound Test)                                                                                                                                                         |
-| **Transformer** | Core Specification (Mounting Type PMT/GMT, Rating, Manufacturer, Serial, Year, Cooling Medium, Breather), Inspection/Condition (Tank Grade 1–5, Tank Issues, Fins Grade, Bushings, Silica Gel, Oil Level), Advanced Data GMT-only (Oil Acidity, Moisture, Breakdown Strength), Consequence of Failure (Bunding, Watercourse Proximity) |
-| **Cable**       | Core Specification (Voltage Level, Cable Type, Conductor Material, CSA, Cores, Installation Year), Loading & Environment (Duty Factor, Situation, Topography), Condition Assessment (Sheath Condition, Joint Condition, Joints Count, Historical Faults, Known Issues)                                                                 |
+| Asset           | Form Sections                                                                                                                                                                                                                                                                                                                                      |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Pole**        | Asset Name, Core Specification (Material, Treatment, Stoutness, Height, Transformers), Inspection/Condition (Top Rot, External Rot, Bird Damage, Verticality, Steel Corrosion, Sound Test)                                                                                                                                                         |
+| **Transformer** | Asset Name, Core Specification (Mounting Type PMT/GMT, Rating, Manufacturer, Serial, Year, Cooling Medium, Breather), Inspection/Condition (Tank Grade 1–5, Tank Issues, Fins Grade, Bushings, Silica Gel, Oil Level), Advanced Data GMT-only (Oil Acidity, Moisture, Breakdown Strength), Consequence of Failure (Bunding, Watercourse Proximity) |
+| **Cable**       | Asset Name, Core Specification (Voltage Level, Cable Type, Conductor Material, CSA, Cores, Installation Year), Loading & Environment (Duty Factor, Situation, Topography), Condition Assessment (Sheath Condition, Joint Condition, Joints Count, Historical Faults, Known Issues)                                                                 |
 
 ### Form UI Components
 
+- **Asset Name Field** — free-text field present on all forms; defaults to a sensible placeholder if left blank.
 - **Traffic Light Selectors** — 4-state condition indicators (None → Minor → Significant → Critical) with colour-coded buttons.
 - **Grade Selectors (1–5)** — used for transformer condition grading: 1 (New) → 5 (Failed).
 - **Conditional Sections** — GMT-only transformer fields appear only when "Ground Mounted" is selected.
+- **Form Pre-population** — when editing an existing asset, all fields are pre-filled from the stored property data so engineers only need to update values that have changed.
 - **Photo Capture** — file input converts images to Base64 via `FileReader` for offline storage.
 
 ---
@@ -487,9 +498,19 @@ A `run.sh` script at the project root resets the database and starts the Flask s
 
 ### Offline Sync Race Condition Fix
 
-A bug introduced by the boot_id cache invalidation caused offline actions to be lost on reconnection. When the server restarted (new `boot_id`), `checkServerStatus()` cleared all local caches — including the sync queue — _before_ `syncOfflineChanges()` had a chance to flush pending actions. The fix reorders the logic so that:
+A bug introduced by the boot*id cache invalidation caused offline actions to be lost on reconnection. When the server restarted (new `boot_id`), `checkServerStatus()` cleared all local caches — including the sync queue — \_before* `syncOfflineChanges()` had a chance to flush pending actions. The fix reorders the logic so that:
 
 1. Pending actions are synced to the server first.
 2. Stale caches are cleared afterwards (if the `boot_id` has changed).
 
 Additionally, the Service Worker was updated to call `self.skipWaiting()` on install and `self.clients.claim()` on activate. This ensures that when the SW cache version is bumped, the new worker takes control immediately rather than waiting for all tabs to close. Without this, code fixes deployed via updated static files were not reaching the browser due to the cache-first serving strategy.
+
+### Manual Sync and Post-Sync Persistence Fix
+
+Auto-sync on reconnection has been replaced with **manual-only synchronisation**. Syncs now only occur when the engineer explicitly presses the sync badge or the Force Sync button. This change was made for three reasons:
+
+1. **Predictability** — the engineer controls exactly when data leaves the device, avoiding surprises from background flushes.
+2. **Queue safety** — the previous auto-sync interacted poorly with the `boot_id` cache invalidation. On a server restart, the sequence was: auto-sync fires → boot_id mismatch detected → `DB.clearAll()` wipes all local data including the sync queue. If the auto-sync failed (e.g. timeout), pending actions were silently destroyed.
+3. **Post-sync visibility** — after a successful sync, `syncOfflineChanges()` now reloads the active work order from the server so the map immediately reflects the synced state. Previously, synced assets would disappear on the next page refresh because the local cache had been cleared without being repopulated.
+
+The `boot_id` mismatch handler was also narrowed: it now clears only the cached work orders and assets (`local_work_orders`, `local_assets`) whilst **preserving the sync queue**, ensuring that pending offline actions survive a server restart.

@@ -291,6 +291,7 @@ const MapController = (() => {
           Bunding: ${p.bunding || "—"}<br>
           Watercourse: ${p.watercourseProximity || "—"}
           <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+          <button onclick="editAsset('${feature.id}')" style="width:100%; padding:6px; background:#2980b9; color:white; border:none; border-radius:4px; cursor:pointer; margin-bottom:4px;">Edit Asset</button>
           <button onclick="deleteAsset('${feature.id}')" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
         </div>
       `;
@@ -334,6 +335,7 @@ const MapController = (() => {
           ${getConditionDot(p.steelCorrosion)}Steel Corrosion: ${p.steelCorrosion || "—"}<br>
           Sound Test: ${p.soundTest || "—"}
           <hr style="border:none; border-top:1px solid #ecf0f1; margin:8px 0;">
+          <button onclick="editAsset('${feature.id}')" style="width:100%; padding:6px; background:#2980b9; color:white; border:none; border-radius:4px; cursor:pointer; margin-bottom:4px;">Edit Asset</button>
           <button onclick="deleteAsset('${feature.id}')" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
         </div>
       `;
@@ -436,6 +438,7 @@ const MapController = (() => {
     }
 
     popupContent += `
+        <button onclick="editAsset('${feature.id}')" style="width:100%; padding:6px; background:#2980b9; color:white; border:none; border-radius:4px; cursor:pointer; margin-bottom:4px;">Edit Asset</button>
         <button onclick="deleteAsset('${feature.id}')" style="width:100%; padding:6px; background:#e74c3c; color:white; border:none; border-radius:4px; cursor:pointer;">Delete Asset</button>
       </div>
     `;

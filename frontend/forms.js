@@ -2,6 +2,17 @@
 // FORM TEMPLATES - Template literals for asset data forms
 // ============================================================
 
+// SHARED: Asset Name Field
+const nameFieldTemplate = `
+  <div class="form-section">
+    <div class="form-section-title">Asset Name</div>
+    <div class="form-group">
+      <label for="asset-name">Name</label>
+      <input type="text" id="asset-name" name="asset-name" placeholder="e.g. Hyde Park Tx" autocomplete="off" />
+    </div>
+  </div>
+`;
+
 // SHARED: Photo Attachment Section
 const photoAttachmentTemplate = `
   <div class="form-section">
@@ -18,6 +29,8 @@ const photoAttachmentTemplate = `
 
 // ==================== POLE FORM TEMPLATE ====================
 const poleFormTemplate = `
+  ${nameFieldTemplate}
+
   <!-- CORE SPECIFICATION -->
   <div class="form-section">
     <div class="form-section-title">Core Specification</div>
@@ -133,6 +146,8 @@ const poleFormTemplate = `
 
 // ==================== TRANSFORMER FORM TEMPLATE ====================
 const transformerFormTemplate = `
+  ${nameFieldTemplate}
+
   <!-- CORE SPECIFICATION -->
   <div class="form-section">
     <div class="form-section-title">Core Specification</div>
@@ -316,6 +331,8 @@ const transformerFormTemplate = `
 
 // ==================== CABLE FORM TEMPLATE ====================
 const cableFormTemplate = `
+  ${nameFieldTemplate}
+
   <!-- CORE SPECIFICATION -->
   <div class="form-section">
     <div class="form-section-title">Core Specification</div>

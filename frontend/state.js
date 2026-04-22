@@ -27,6 +27,10 @@ const AppState = {
   // Editing an existing asset (null when creating new)
   editingAssetId: null,
 
+  // Accepting a design asset — stores the design ID and original feature
+  pendingAcceptDesignId: null,
+  pendingAcceptDesignFeature: null,
+
   // Connectivity
   isServerReachable: false,
 
