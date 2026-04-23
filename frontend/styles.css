@@ -31,7 +31,8 @@ html {
   flex-shrink: 0; /* Prevent shrinking */
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
   z-index: 1001; /* Sit above map tiles */
-  overflow: hidden; /* Contain children within sidebar height */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Sidebar Header */
@@ -57,10 +58,6 @@ html {
 /* ── Map Key ── */
 .map-key {
   border-top: 1px solid #1a252f;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  flex-shrink: 1;
-  min-height: 0;
 }
 .key-item {
   display: flex;
