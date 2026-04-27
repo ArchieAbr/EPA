@@ -200,7 +200,7 @@ The application follows a clear three-step workflow that maps directly to how a 
    - **UPDATE** → overwrites geometry/properties on the existing row and logs the change.
    - **DELETE** → soft-deletes the asset (sets status to `decommissioned`) and logs the deletion.
    - **ACCEPT** → creates a new as-built asset from a design asset and marks the corresponding entry in the work order's `design_assets` as accepted.
-6. On a successful `200` response, the local `sync_queue` is cleared, the badge resets to zero, and the current work order is reloaded from the server so the map immediately reflects the synced state.
+6. On a successful `200` response, the local `sync_queue` can be cleared, the badge resets to zero, and the current work order is reloaded from the server so the map immediately reflects the synced state.
 
 ### Server-Restart Detection
 
@@ -210,7 +210,7 @@ The health-check response includes a `boot_id` — a timestamp generated when th
 
 The Action Queue uses a **last-writer-wins** strategy. If two engineers edit the same asset offline, whichever sync arrives at the server last will overwrite the other. This is an intentional trade-off:
 
-- It is simple, predictable, and easy to reason about.
+- It is simple, predictable.
 - The `audit_log` table preserves a full history of every action, so no data is truly lost — it can always be reviewed or rolled back manually.
 - For the EPA scope (single-user field capture), concurrent conflicts are unlikely.
 
