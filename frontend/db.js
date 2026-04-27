@@ -1,7 +1,5 @@
-// ============================================================
 // IndexedDB layer via Dexie.js
 // Three stores: local_work_orders, local_assets, sync_queue
-// ============================================================
 
 const idb = new Dexie("OfflineGIS");
 
@@ -12,7 +10,7 @@ idb.version(1).stores({
 });
 
 const DB = {
-  // ─────────── Work Order cache ───────────
+  // Work Order cache
 
   /** Save a full work order (with design_assets) to local storage. */
   async saveWorkOrder(wo) {
@@ -35,7 +33,7 @@ const DB = {
     await idb.local_work_orders.delete(id);
   },
 
-  // ─────────── Local asset cache ───────────
+  // Local asset cache
 
   /** Bulk-save an array of assets (used when downloading a work order). */
   async saveAssets(assets) {
@@ -68,7 +66,7 @@ const DB = {
     await idb.local_assets.delete(id);
   },
 
-  // ─────────── Sync queue (action log) ───────────
+  // Sync queue (action log)
 
   /**
    * Record an action in the sync queue.
