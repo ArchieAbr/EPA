@@ -1,6 +1,4 @@
-/* ============================================================
-   OFFLINE GIS ASSET CAPTURE - STYLESHEET
-   ============================================================ */
+/* OFFLINE GIS ASSET CAPTURE - STYLESHEET */
 
 /* RESET & LAYOUT */
 body,
@@ -18,9 +16,7 @@ html {
   width: 100vw;
 }
 
-/* ============================================================
-   LEFT SIDEBAR (The Tools)
-   ============================================================ */
+/* LEFT SIDEBAR (The Tools) */
 .sidebar {
   width: 300px; /* Fixed width */
   background-color: #2c3e50;
@@ -152,9 +148,7 @@ html {
   border-left: 3px solid #3498db;
 }
 
-/* ============================================================
-   RIGHT CONTENT (The Map)
-   ============================================================ */
+/* RIGHT CONTENT (The Map) */
 .map-wrapper {
   flex-grow: 1; /* Take remaining space */
   position: relative;
@@ -211,9 +205,7 @@ html {
   background: #c0392b;
 }
 
-/* ============================================================
-   MODAL OVERLAY
-   ============================================================ */
+/* MODAL OVERLAY */
 .modal-overlay {
   display: none;
   position: fixed;
@@ -313,9 +305,7 @@ html {
   background: #219a52;
 }
 
-/* ============================================================
-   FORM FIELDS
-   ============================================================ */
+/* FORM FIELDS */
 .form-group {
   margin-bottom: 12px;
 }
@@ -360,9 +350,7 @@ html {
   display: block;
 }
 
-/* ============================================================
-   TRAFFIC LIGHT SELECTOR (Poles)
-   ============================================================ */
+/* TRAFFIC LIGHT SELECTOR (Poles) */
 .traffic-light {
   display: flex;
   gap: 8px;
@@ -414,9 +402,7 @@ html {
   color: white;
 }
 
-/* ============================================================
-   GRADE 1-5 SELECTOR (Transformers)
-   ============================================================ */
+/* GRADE 1-5 SELECTOR (Transformers) */
 .grade-selector {
   display: flex;
   gap: 6px;
@@ -475,9 +461,7 @@ html {
   color: white;
 }
 
-/* ============================================================
-   CHECKBOX GROUP
-   ============================================================ */
+/* CHECKBOX GROUP */
 .checkbox-group {
   display: flex;
   flex-wrap: wrap;
@@ -501,9 +485,7 @@ html {
   margin: 0;
 }
 
-/* ============================================================
-   PHOTO UPLOAD
-   ============================================================ */
+/* PHOTO UPLOAD */
 .photo-upload {
   border: 2px dashed #bdc3c7;
   border-radius: 4px;
@@ -534,9 +516,7 @@ html {
   display: block;
 }
 
-/* ============================================================
-   WORK ORDER SELECTOR
-   ============================================================ */
+/* WORK ORDER SELECTOR */
 .wo-loading {
   padding: 40px;
   text-align: center;
@@ -752,9 +732,7 @@ html {
   text-transform: uppercase;
 }
 
-/* ============================================================
-   CABLE LENGTH LABELS
-   ============================================================ */
+/* CABLE LENGTH LABELS */
 .cable-length-label {
   background: none;
   border: none;
@@ -771,9 +749,7 @@ html {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-/* ============================================================
-   TRANSFORMER MARKER (SQUARE)
-   ============================================================ */
+/* TRANSFORMER MARKER (SQUARE) */
 .transformer-marker {
   background: none !important;
   border: none !important;
