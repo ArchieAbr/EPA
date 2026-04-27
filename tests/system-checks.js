@@ -8,7 +8,7 @@ const SystemTests = {
   passed: 0,
   failed: 0,
 
-  // ==================== Test Runner ====================
+  // Test Runner
   async runAll() {
     this.results = [];
     this.passed = 0;
@@ -76,7 +76,7 @@ const SystemTests = {
     }
   },
 
-  // ==================== IndexedDB Tests ====================
+  // IndexedDB Tests
 
   async testDexieConnection() {
     if (typeof Dexie === "undefined") {
@@ -165,7 +165,7 @@ const SystemTests = {
     return { success: true, message: "Work order cache OK" };
   },
 
-  // ==================== Form Template Tests ====================
+  // Form Template Tests
 
   async testPoleFormTemplate() {
     if (typeof getFormTemplate !== "function") {
@@ -212,7 +212,7 @@ const SystemTests = {
     };
   },
 
-  // ==================== UI Component Tests ====================
+  // UI Component Tests
 
   async testTrafficLightInit() {
     const container = document.createElement("div");
@@ -292,7 +292,7 @@ const SystemTests = {
     };
   },
 
-  // ==================== API Connectivity Tests ====================
+  // API Connectivity Tests
 
   async testAPIHealth() {
     try {
@@ -403,7 +403,7 @@ const SystemTests = {
     }
   },
 
-  // ==================== Offline Workflow Test ====================
+  // Offline Workflow Test
 
   async testOfflineCreateSync() {
     // This test creates a temporary asset in IndexedDB, queues a sync action,
@@ -470,7 +470,7 @@ const SystemTests = {
     }
   },
 
-  // ==================== Summary ====================
+  // Summary
   printSummary() {
     const total = this.results.length;
     const pct = total > 0 ? ((this.passed / total) * 100).toFixed(0) : 0;
