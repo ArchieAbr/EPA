@@ -1,6 +1,4 @@
-// ============================================================
 // Frontend orchestrator — wires up map, forms, DB, and sync
-// ============================================================
 
 /* ── Expose handlers to inline HTML ── */
 window.activateTool = activateTool;
@@ -41,7 +39,7 @@ map.on("click", (e) => {
   }
 });
 
-// ──────────────────── Work Order Flow ────────────────────
+// Work Order Flow
 
 async function openWorkOrderSelector() {
   UI.showWorkOrderSelector();
@@ -85,7 +83,7 @@ async function loadWorkOrder(woId) {
         const tagged = existingAssets.map((a) => ({
           ...a,
           work_order_id: woId,
-          _source: "server", // so we know it came from the register
+          _source: "server", // so the system knows it came from the register
         }));
         await DB.saveAssets(tagged);
       } catch (serverErr) {
@@ -135,7 +133,7 @@ async function loadWorkOrder(woId) {
   }
 }
 
-// ──────────────────── Tool Activation ────────────────────
+// Tool Activation
 
 function activateTool(toolName) {
   AppState.currentTool = toolName;
@@ -166,7 +164,7 @@ function handleFeatureClick(e) {
   }
 }
 
-// ──────────────────── Asset Creation ────────────────────
+// Asset Creation
 
 function createPointAsset(latlng, type) {
   AppState.pendingAssetGeometry = {
@@ -234,7 +232,7 @@ function cancelCableDrawing() {
   console.log("Cable drawing cancelled.");
 }
 
-// ──────────────────── Form Submission ────────────────────
+// Form Submission
 
 async function saveAssetForm(evt) {
   if (evt && typeof evt.preventDefault === "function") evt.preventDefault();
@@ -445,7 +443,7 @@ function buildProperties(assetType, form) {
   };
 }
 
-// ──────────────────── Delete Asset ────────────────────
+// Delete Asset
 
 async function deleteAsset(assetId) {
   const woId = AppState.currentWorkOrder?.id || null;
@@ -474,7 +472,7 @@ async function deleteAsset(assetId) {
   console.log(`Asset ${assetId} deleted (queued for sync).`);
 }
 
-// ──────────────────── Edit Asset ────────────────────
+// Edit Asset
 
 /**
  * Open the CNAIM form modal pre-populated with an existing asset's data.
@@ -502,8 +500,7 @@ async function editAsset(assetId) {
   UI.populateAssetForm(assetType, p);
 }
 
-// ──────────────────── Accept Design Asset ────────────────────
-
+// Accept Design Asset
 /**
  * Accept a blackline (proposed) design asset, converting it to an as-built asset.
  * Opens the CNAIM form pre-filled from the design's properties so the engineer
@@ -553,7 +550,7 @@ async function acceptDesignAsset(designId) {
   MapController.getMap()?.closePopup();
 }
 
-// ──────────────────── Clear Local Data ────────────────────
+// Clear Local Data
 
 async function clearLocalData() {
   if (
@@ -576,7 +573,7 @@ async function clearLocalData() {
   location.reload();
 }
 
-// ──────────────────── Sync Logic ────────────────────
+// Sync Logic
 
 async function syncOfflineChanges() {
   const queue = await DB.getSyncQueue();
@@ -616,7 +613,7 @@ async function syncOfflineChanges() {
   }
 }
 
-// ──────────────────── Map Rendering ────────────────────
+// Map Rendering
 
 async function renderLocalAssets() {
   const woId = AppState.currentWorkOrder?.id;
@@ -624,7 +621,7 @@ async function renderLocalAssets() {
   MapController.renderLocalAssets(assets);
 }
 
-// ──────────────────── Sync Badge ────────────────────
+// Sync Badge
 
 async function updateSyncBadge() {
   const count = await DB.getSyncQueueCount();
@@ -632,7 +629,7 @@ async function updateSyncBadge() {
   UI.updateSyncBadge(count);
 }
 
-// ──────────────────── Connection Health Check ────────────────────
+// Connection Health Check
 
 async function checkServerStatus() {
   const wasReachable = AppState.isServerReachable;
@@ -662,7 +659,7 @@ async function checkServerStatus() {
   }
 }
 
-// ──────────────────── Init ────────────────────
+// Init
 
 (async function init() {
   // Check connectivity first
