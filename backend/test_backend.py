@@ -19,7 +19,7 @@ from app import app, db, seed_if_empty
 from models import Asset, AuditLog, WorkOrder
 
 
-# ─────────────────────── Fixtures ───────────────────────
+# Fixtures
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ def _make_action(action, asset_id, wo_id="WR-2026-0401", asset_type="Pole",
     return entry
 
 
-# ═══════════════════════ Health ═══════════════════════
+# Health
 
 
 class TestHealth:
@@ -87,7 +87,7 @@ class TestHealth:
         assert d1["boot_id"] == d2["boot_id"]
 
 
-# ═══════════════════════ Work Orders ═══════════════════════
+# Work Orders
 
 
 class TestWorkOrders:
@@ -131,7 +131,7 @@ class TestWorkOrders:
         assert res.status_code == 404
 
 
-# ═══════════════════════ Sync — CREATE ═══════════════════════
+# Sync — CREATE
 
 
 class TestSyncCreate:
@@ -177,7 +177,7 @@ class TestSyncCreate:
         assert data["results"][0]["status"] == "ok"
 
 
-# ═══════════════════════ Sync — UPDATE ═══════════════════════
+# Sync — UPDATE
 
 
 class TestSyncUpdate:
@@ -192,7 +192,7 @@ class TestSyncUpdate:
         assert data["results"][0]["status"] == "ok"
 
 
-# ═══════════════════════ Sync — DELETE ═══════════════════════
+# Sync — DELETE
 
 
 class TestSyncDelete:
@@ -218,7 +218,7 @@ class TestSyncDelete:
         assert data["results"][0]["status"] == "ok"
 
 
-# ═══════════════════════ Sync — ACCEPT ═══════════════════════
+# Sync — ACCEPT
 
 
 class TestSyncAccept:
@@ -256,7 +256,7 @@ class TestSyncAccept:
         assert entry is not None
 
 
-# ═══════════════════════ Sync — Batch & Edge Cases ═══════════════════════
+# Sync — Batch & Edge Cases
 
 
 class TestSyncEdgeCases:
@@ -293,7 +293,7 @@ class TestSyncEdgeCases:
         assert res.get_json()["processed"] == 0
 
 
-# ═══════════════════════ Audit Log ═══════════════════════
+# Audit Log
 
 
 class TestAuditLog:
@@ -310,7 +310,7 @@ class TestAuditLog:
             assert key in entry
 
 
-# ═══════════════════════ Activity Feed ═══════════════════════
+# Activity Feed
 
 
 class TestActivity:
@@ -329,7 +329,7 @@ class TestActivity:
         assert len(data["recent"]) >= 1
 
 
-# ═══════════════════════ Admin Dashboard ═══════════════════════
+# Admin Dashboard
 
 
 class TestAdmin:
