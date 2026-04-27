@@ -1,6 +1,4 @@
-// ============================================================
 // Service Worker — caches static files and map tiles for offline use
-// ============================================================
 
 const CACHE_NAME = "offline-gis-v21";
 
