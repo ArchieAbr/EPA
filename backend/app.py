@@ -43,7 +43,7 @@ WORK_ORDERS_FILE = os.path.join(_BASE_DIR, "work_orders.json")
 ASSETS_FILE = os.path.join(_BASE_DIR, "database.geojson")
 
 
-# ─────────────────────────── Seed helpers ───────────────────────────
+# Seed helpers
 
 def _seed_work_orders():
     """Load work orders from the JSON seed file."""
@@ -117,7 +117,7 @@ def reset_database():
     log.info("Database reset complete — %d work orders, %d assets seeded.", wo_count, asset_count)
 
 
-# ─────────────────────────── Helpers ───────────────────────────
+# Helpers
 
 def _asset_to_geojson(asset: Asset) -> dict:
     """Serialise an Asset row to a GeoJSON Feature."""
@@ -154,7 +154,7 @@ def _point_in_bounds(geometry: dict, bounds: dict) -> bool:
     return sw_lat <= lat <= ne_lat and sw_lng <= lng <= ne_lng
 
 
-# ─────────────────────────── Routes ───────────────────────────
+# Routes
 
 @app.route("/api/health", methods=["GET", "HEAD"])
 def health():
@@ -227,7 +227,7 @@ def get_work_order_assets(wo_id):
     return jsonify(features)
 
 
-# ─────────────────────────── Sync endpoint ───────────────────────────
+# Sync endpoint
 
 @app.route("/api/sync", methods=["POST"])
 def sync():
@@ -320,7 +320,7 @@ def sync():
                     existing.asset_type = asset_type or existing.asset_type
                     existing.updated_at = now
                 else:
-                    # Asset doesn't exist yet — create it to avoid data loss
+                    # Asset doesn't exist yet — create it
                     asset = Asset(
                         id=asset_id,
                         asset_type=asset_type,
@@ -378,7 +378,7 @@ def sync():
     })
 
 
-# ─────────────────────────── Audit log (read-only) ───────────────────────────
+# Audit log (read-only)
 
 @app.route("/api/audit", methods=["GET"])
 def get_audit_log():
@@ -398,7 +398,7 @@ def get_audit_log():
     ])
 
 
-# ─────────────────────── Activity feed (for dashboard) ────────────────────────
+# Activity feed (for dashboard)
 
 @app.route("/api/activity", methods=["GET"])
 def get_activity():
@@ -431,7 +431,7 @@ def get_activity():
     })
 
 
-# ─────────────────────── Admin dashboard ────────────────────────
+# Admin dashboard
 
 ADMIN_HTML = open(
     os.path.join(os.path.dirname(__file__), "admin.html"), encoding="utf-8"
@@ -444,7 +444,7 @@ def admin_dashboard():
     return ADMIN_HTML
 
 
-# ─────────────────────────── Entrypoint ───────────────────────────
+# Entrypoint
 
 if __name__ == "__main__":
     import sys
