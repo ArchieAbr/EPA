@@ -598,3 +598,6 @@ Auto-sync on reconnection has been replaced with **manual-only synchronisation**
 3. **Post-sync visibility** — after a successful sync, `syncOfflineChanges()` now reloads the active work order from the server so the map immediately reflects the synced state. Previously, synced assets would disappear on the next page refresh because the local cache had been cleared without being repopulated.
 
 The `boot_id` mismatch handler was also narrowed: it now clears only the cached work orders and assets (`local_work_orders`, `local_assets`) whilst **preserving the sync queue**, ensuring that pending offline actions survive a server restart.
+
+---
+<p align="center">© 2026 Archie Abraham</p>
